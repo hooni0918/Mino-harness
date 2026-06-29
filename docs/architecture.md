@@ -53,8 +53,13 @@ qa-reviewer ──▶ QA 판정 리포트 (PR 본문용)
 
 | 바꾸고 싶은 것 | 고칠 위치 |
 |----------------|-----------|
+| 입력 분류·모델 배정 규칙 | `.claude/skills/mino-router/SKILL.md` |
+| 분류 → 실행 오케스트레이션 | `workflows/figma-to-pr.js` |
 | SwiftUI/테스트/동시성 판단 기준 | 벤더 스킬은 직접 수정 금지 → 업스트림 반영 또는 `CLAUDE.md`에 프로젝트 규칙 추가 |
 | 각 단계가 하는 일 | `.claude/agents/<agent>.md` |
 | 단계 순서·게이트 | `.claude/skills/mino-qa/SKILL.md` |
 | 프로젝트 레이어/네이밍 규칙 | `CLAUDE.md` |
 | 산출물을 적대적으로 단단하게 | `workflows/adversarial-harden.js` (→ `adversarial-improvement.md`) |
+
+라우터(`mino-router` + `figma-to-pr.js`)는 이 번들의 **입구**다. 비싼 모델로 한 번 분류하고
+나머지 단계를 복잡도에 맞는 모델로 내려보낸다. 분류 이후의 실행은 위 QA 파이프라인 그대로다.
