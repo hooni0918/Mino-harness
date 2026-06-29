@@ -57,7 +57,7 @@ changeType별 세분 분기(`ui-only`면 QA 경량, `architecture`면 설계 분
 | 분류·설계 | Opus | 1회, 판단이 결과를 좌우 |
 | 화면 구현 (ios-workflow) | Sonnet | 코드 작성, 컨텍스트 큼 |
 | 접근성 부여 | Sonnet | 코드 편집 동반 |
-| 테스트·시나리오 작성 | Haiku | 규칙 기반 텍스트 생성 |
+| 테스트·시나리오 작성 | Sonnet | 분석·리뷰가 섞여 Haiku는 노이즈가 큼 (실측으로 Haiku가 틀린 지적 다수 → 격상) |
 | 시뮬레이터 QA 판정 | Sonnet | 스크린샷 해석 |
 
 ## 한계
