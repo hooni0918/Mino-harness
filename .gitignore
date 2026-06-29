@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Xcode / SwiftPM
+.build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# AXe QA 산출물 (시뮬레이터 스크린샷·영상·describe-ui 덤프)
+qa-artifacts/
+*.trace
+
+# 에디터
+.idea/
+*.swp
