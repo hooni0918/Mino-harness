@@ -72,7 +72,7 @@ const A11Y = {
   required: ['identifiers'],
 }
 
-const DEFAULTS = { implement: 'sonnet', accessibility: 'sonnet', tests: 'haiku', qa: 'sonnet' }
+const DEFAULTS = { implement: 'sonnet', accessibility: 'sonnet', tests: 'sonnet', qa: 'sonnet' }
 const modelFor = (plan, stage) => (plan.models && plan.models[stage]) || DEFAULTS[stage]
 
 if (!figmaUrl) {
@@ -88,7 +88,8 @@ const plan = await agent(
   `→ get_screenshot(시각) → get_variable_defs(토큰). 도구를 못 찾으면 그 사실을 summary에 적고 멈춰라(추측 금지).\n\n` +
   `Mino는 SwiftUI · Clean Architecture · Swift 6 / iOS 17+ 다. CLAUDE.md 규칙을 전제로 분류하라.\n` +
   `각 단계(implement/accessibility/tests/qa) 모델을 복잡도에 맞게 배정하라 — 판단·설계가 무거우면 opus/sonnet, ` +
-  `규칙기반 단순 작업이면 haiku. 기존 화면 수정이라 새 구현이 불필요하면 skipImplement=true.`,
+  `정말 기계적인 변환만 haiku 로 둔다 — 테스트·분석·리뷰가 섞인 단계는 haiku 출력 노이즈가 커서(실측) sonnet 이상으로 둔다. ` +
+  `기존 화면 수정이라 새 구현이 불필요하면 skipImplement=true.`,
   { model: 'opus', effort: 'high', phase: 'Classify', schema: PLAN }
 )
 
