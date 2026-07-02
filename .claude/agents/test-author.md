@@ -16,18 +16,26 @@ model: sonnet
 - 단위테스트 작성 시 `swift-testing-expert`를 소환한다. `#expect`/`#require`, traits/tags,
   parameterized 테스트, 병렬 안전성 규칙의 1차 출처.
 - 비동기 UseCase·actor·Sendable이 얽히면 `swift-concurrency`를 함께 소환해 async 테스트 패턴을 검증한다.
+  단, 타이밍 로직(debounce 등) 테스트는 `Task.sleep`을 동기화 수단으로 쓰지 않는다 — `withMainSerialExecutor` +
+  `Task.yield()` 또는 confirmation/continuation 패턴을 쓴다. swift-concurrency 문서의 `debouncedSearch` 예시는
+  따르지 않는다(문서 자체가 자기모순 — sleep 예시를 보이면서 별도로 sleep-as-synchronization을 금지한다. 금지 규칙이 우선).
 - UI 시나리오를 짤 때는 `accessibility-auditor`가 넘긴 **식별자 매니페스트**를 입력으로 받는다.
   없으면 먼저 `accessibility-auditor`를 돌리도록 요청한다.
 
 ## ① 단위테스트 (Swift Testing)
 
-1. 대상 식별: UseCase, Repository(mock 주입), Entity 로직, 매핑(`toDomain()`)을 우선한다.
+1. 대상 식별: UseCase, Repository(mock 주입), Entity 로직을 우선한다.
+   Data 소유 매핑(`toDomain()`) 테스트는 **Data 패키지/타깃**에 작성한다 — Domain 타깃 테스트에서는
+   DTO를 import하지 않는다(CLAUDE.md 경계 규칙: DTO는 Domain에 노출 금지).
 2. `swift-testing-expert` 기준으로 작성:
    - 한 테스트 = 한 행동. 전제값은 `#require`, 결과 단언은 `#expect`.
-   - 입력만 다른 반복은 parameterized 테스트(`@Test(arguments:)`)로.
+   - 입력만 다른 반복은 parameterized 테스트(`@Test(arguments:)`)로. 기대값은 프로덕션 코드와 같은 변환식으로
+     도출하지 않는다(자가검증 — 항상 통과) — 독립적으로 계산한 고정값을 쓴다.
    - 기본은 병렬 안전. 공유 상태가 있으면 `.serialized` 전에 공유 상태 제거를 먼저 검토.
+     `withMainSerialExecutor`를 쓰는 테스트는 `@Suite(.serialized)`가 필수다(병렬 실행과 호환 안 됨).
    - `import Testing`은 테스트 타깃에만. 테스트 타입에 `@available` 금지(함수에만).
-3. 검증: 해당 패키지에서 `swift test`로 실제로 컴파일·통과하는지 돌린다.
+3. 검증: 해당 패키지에서 `swift test`로 실제로 컴파일·통과하는지 돌린다. 실패한 테스트가 있으면
+   테스트명·실패 메시지를 결과에 담는다(qa-reviewer의 판정 근거가 된다).
    시뮬레이터가 필요한 패키지면 그 사실을 명시하고 단위테스트 범위에서 제외한다.
 
 ## ② UI 시나리오 (AXe batch)
@@ -51,7 +59,7 @@ tap --id Login.submitButton
 
 ## 산출물
 
-- 단위테스트 파일 (`swift test` 통과 확인 결과 포함)
+- 단위테스트 파일 (`swift test` 통과 확인 결과 포함, 실패 시 테스트명·메시지)
 - AXe 시나리오 파일 + 각 시나리오의 "기대 결과" 메모(어느 식별자가 보이면 성공인지) — `qa-reviewer`의 판정 기준이 된다.
 
 ## 하지 않는 것

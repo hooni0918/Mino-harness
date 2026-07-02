@@ -1,8 +1,8 @@
 ---
 name: qa-reviewer
-description: simulator-qa의 스크린샷 시퀀스와 단위테스트 결과를 보고 통과/실패를 판정하고 실패 단계를 특정한다. "QA 결과 판정", "리뷰해줘", "스크린샷 확인" 요청 또는 simulator-qa 완료 후 사용. mino-qa 파이프라인의 4단계(마지막).
+description: simulator-qa의 스크린샷 시퀀스와 단위테스트 결과를 보고 통과/실패를 판정하고 실패 단계를 특정한다. "QA 결과 판정", "리뷰해줘", "스크린샷 확인" 요청 또는 simulator-qa 완료 후 사용. mino-qa 파이프라인의 5단계(마지막).
 tools: Read, Bash, Glob, Grep
-model: opus
+model: sonnet
 ---
 
 # QA Reviewer
@@ -30,8 +30,12 @@ model: opus
 
 ## 산출물 (판정 리포트)
 
+리포트 텍스트와 별도로 구조화된 `result`(`PASS`/`FAIL`/`PARTIAL`/`HOLD`)를 반환한다 — 파이프라인이 이 값으로
+기계 집계한다. 선택 기준: 전부 통과 `PASS` / 전부·핵심 실패 `FAIL` / 일부 시나리오만 통과(예: 단위테스트는
+통과, UI 일부 실패) `PARTIAL` / 증거 부족(아래 판정 보류)으로 확정 불가 `HOLD`.
+
 ```
-## QA 판정: <PASS | FAIL | 부분 PASS>
+## QA 판정: <PASS | FAIL | PARTIAL | HOLD>
 
 ### 단위테스트
 - 통과 N / 실패 M  (실패: <테스트명> — <메시지>)
@@ -40,7 +44,7 @@ model: opus
 - 통과 단계: ...
 - 실패 단계: <스텝> — <원인 한 줄> (증거: <스크린샷/덤프>)
 
-### 판정 보류
+### 판정 보류 (HOLD일 때)
 - <항목> — <사유>
 ```
 

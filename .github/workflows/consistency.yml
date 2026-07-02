@@ -1,0 +1,35 @@
+name: consistency
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 문서-코드 정합성 검사
+        run: python3 scripts/check_consistency.py
+
+      - name: workflows/*.js 구문 검사 (top-level return/await 이라 node --check 불가)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+            let failed = 0;
+            for (const f of fs.readdirSync("workflows").filter((x) => x.endsWith(".js"))) {
+              const src = fs
+                .readFileSync("workflows/" + f, "utf8")
+                .replace(/^export const meta/m, "const meta");
+              try {
+                new AsyncFunction("agent", "parallel", "pipeline", "log", "phase", "args", "budget", "workflow", src);
+                console.log("OK " + f);
+              } catch (e) {
+                console.error("SYNTAX ERROR " + f + ": " + e.message);
+                failed = 1;
+              }
+            }
+            process.exit(failed);
+          '

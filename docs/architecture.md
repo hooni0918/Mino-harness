@@ -14,10 +14,11 @@
 
 이 넷은 외부에서 그대로 가져온 것이라 우리가 내용을 고치지 않는다(업데이트는 NOTICE의 출처에서 다시 받음).
 
-### 2. QA 에이전트 (자작, `.claude/agents/`)
+### 2. 에이전트 (자작, `.claude/agents/`)
 **누가 무슨 일을 하는지**다. 각 에이전트는 독립 컨텍스트에서 돌며 위 스킬을 소환해 일한다.
 
-- `accessibility-auditor` → `test-author` → `simulator-qa` → `qa-reviewer`
+- (modify 경로 선행) `screen-modifier` — Figma 원본 재대조 수렴으로 기존 화면 수정
+- `accessibility-auditor` → `test-author` → `build-runner` → `simulator-qa` → `qa-reviewer`
 
 ### 3. 오케스트레이터 (자작, `.claude/skills/mino-qa/`)
 **순서와 게이트**다. 네 에이전트를 파이프라인으로 엮고, 단계 사이의 중단 조건(식별자 누락 등)을 정의한다.
@@ -26,12 +27,15 @@
 
 ```
 SwiftUI 뷰
-  │   (git diff로 대상 수집)
+  │   (git diff로 대상 수집 · modify면 screen-modifier가 Figma 대조 수정 선행)
   ▼
-accessibility-auditor ──▶ 식별자 매니페스트 ("Login.emailField": field, ...)
+accessibility-auditor ──▶ 식별자 매니페스트 (qa/manifests/<Screen>.json)
   │
   ▼
 test-author ──▶ 단위테스트(.swift) + AXe 시나리오(qa/scenarios/*.txt) + 기대결과 메모
+  │
+  ▼
+build-runner ──▶ 빌드·설치·실행 결과 (built/installedAndLaunched/udid) — 실패면 드롭, 시뮬레이터 미가용이면 QA에 HOLD로 전달
   │
   ▼
 simulator-qa ──▶ 스크린샷 시퀀스(qa-artifacts/*.png) + 실행 로그
@@ -62,4 +66,5 @@ qa-reviewer ──▶ QA 판정 리포트 (PR 본문용)
 | 산출물을 적대적으로 단단하게 | `workflows/adversarial-harden.js` (→ `adversarial-improvement.md`) |
 
 라우터(`mino-router` + `figma-to-pr.js`)는 이 번들의 **입구**다. 비싼 모델로 한 번 분류하고
-나머지 단계를 복잡도에 맞는 모델로 내려보낸다. 분류 이후의 실행은 위 QA 파이프라인 그대로다.
+나머지 단계를 복잡도에 맞는 모델로 내려보낸다. 신규 화면(`new`)은 대화형 `/ios-workflow` 안내로
+분리되고, 분류 이후의 무인 실행(modify/qa-only)은 위 QA 파이프라인 그대로다.
