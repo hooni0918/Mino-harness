@@ -1,6 +1,6 @@
 ---
 name: qa-reviewer
-description: simulator-qa의 스크린샷 시퀀스와 단위테스트 결과를 보고 통과/실패를 판정하고 실패 단계를 특정한다. "QA 결과 판정", "리뷰해줘", "스크린샷 확인" 요청 또는 simulator-qa 완료 후 사용. mino-qa 파이프라인의 4단계(마지막).
+description: simulator-qa의 스크린샷 시퀀스와 단위테스트 결과를 보고 통과/실패를 판정하고 실패 단계를 특정한다. "QA 결과 판정", "리뷰해줘", "스크린샷 확인" 요청 또는 simulator-qa 완료 후 사용. mino-qa 파이프라인의 5단계(마지막).
 tools: Read, Bash, Glob, Grep
 model: opus
 ---
