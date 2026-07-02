@@ -20,7 +20,7 @@ Mino 작업의 **입구**다. Figma URL이나 요청을 받아, 비싼 모델로
 ```
 입력 (Figma URL / 요청)
   │
-  ▼  [Opus] 분류        Figma를 읽고 → 화면별 changeType + 단계별 모델 배정
+  ▼  [Opus] 분류        Figma를 읽고 → 화면별 changeType, 단계별 모델 배정(배치 전체 공통)
   │
   ├─ new      → 파이프라인 밖. "대화형 /ios-workflow BG <모드>" 안내만 출력 (guidance)
   ├─ modify   → screen-modifier 수정(게이트) → 접근성(게이트) → 테스트(게이트) → 빌드(게이트) → QA
@@ -46,7 +46,8 @@ Mino 작업의 **입구**다. Figma URL이나 요청을 받아, 비싼 모델로
 - **screens[].changeType** (화면 단위 — 전역 플래그가 아니다):
   - `new`: 코드베이스에 없는 화면. Grep으로 실존 여부를 확인한 뒤 판정한다. 파이프라인 제외, 안내만.
   - `modify`: 기존 화면에 디자인 변경 반영. screen-modifier가 Figma 원본 대조로 수정.
-  - `qa-only`: 코드 수정 없이 검증만 (접근성 점검·테스트·시뮬레이터 QA).
+  - `qa-only`: 코드 수정 없이 검증만 (접근성 점검·테스트·시뮬레이터 QA). 단, 자동화에 필요한
+    `accessibilityIdentifier` 부여는 검증의 전제 조건이라 예외 — 디자인·로직 변경은 없다는 뜻이다.
 - **complexity**: `low` | `medium` | `high` (상태 분기·비동기·새 모듈 동반 여부)
 - **summary**: 작업 한 줄 요약 (분류 근거)
 - **needsWiki**: 재사용 패턴/아키텍처 결정이 생겨 위키 갱신이 필요한가 (플래그만 — 실행 단계는 후속 과제)
