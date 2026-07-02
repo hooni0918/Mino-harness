@@ -102,6 +102,10 @@ const TESTS = {
   properties: {
     compiled: { type: 'boolean', description: 'swift test가 컴파일에 성공했는가' },
     unitPassed: { type: 'number' }, unitFailed: { type: 'number' },
+    failures: {
+      type: 'array', description: '실패한 단위테스트 목록 (qa-reviewer 리포트의 실패 상세 근거)',
+      items: { type: 'object', properties: { name: { type: 'string' }, message: { type: 'string' } }, required: ['name', 'message'] },
+    },
     scenarioPath: { type: 'string', description: 'AXe 시나리오 파일 경로 (qa/scenarios/<screen>.txt)' },
     expectations: { type: 'string', description: '기대 결과 메모 — 어느 식별자가 보이면 성공인지' },
     note: { type: 'string' },
@@ -118,7 +122,17 @@ const BUILD = {
     udid: { type: 'string' },
     note: { type: 'string', description: '대상 없음 사유 / 빌드 실패 핵심 로그 / 화면 직행 딥링크 유무' },
   },
-  required: ['built'],
+  required: ['built', 'installedAndLaunched'],
+}
+
+// 시뮬레이터 실행 산출물 — 다른 모든 단계처럼 명시적 인공물로 구조화한다(architecture.md 약속).
+const SIM_RUN = {
+  type: 'object',
+  properties: {
+    screenshots: { type: 'array', items: { type: 'string' }, description: '단계별 스크린샷 경로 (qa-artifacts/*.png)' },
+    log: { type: 'string', description: '실행 로그 — 각 스텝 성공/실패, 실패 시 describe-ui 덤프' },
+  },
+  required: ['screenshots', 'log'],
 }
 
 // QA 판정 — 리포트 본문은 그대로 받되, 결과만 구조화해 기계가 집계할 수 있게 한다.
@@ -219,7 +233,8 @@ const results = pipelineScreens.length === 0 ? [] : await pipeline(
     const t = await agent(
       `${screen.name}의 단위테스트(Swift Testing)와 AXe UI 시나리오를 작성하라. ` +
       `식별자 매니페스트(${prev.manifestPath}):\n${JSON.stringify(prev.manifest)}\n` +
-      `작성 후 해당 패키지에서 swift test로 컴파일·실행을 확인하고 결과를 보고하라.`,
+      `작성 후 해당 패키지에서 swift test로 컴파일·실행을 확인하고 결과를 보고하라. ` +
+      `실패한 테스트가 있으면 failures에 테스트명·메시지를 담아라.`,
       { agentType: 'test-author', model: modelFor(plan, 'tests'), phase: 'Tests', label: `test:${screen.name}`, schema: TESTS }
     )
     if (!t) throw new Error('test-author 응답 없음')
@@ -231,13 +246,15 @@ const results = pipelineScreens.length === 0 ? [] : await pipeline(
   gated('build', async (prev, screen) => {
     const b = await agent(
       `${screen.name} 화면이 포함된 프로젝트를 빌드하고 시뮬레이터에 설치·실행하라. ` +
-      `앱 타깃이 없으면 추측하지 말고 built=false와 사유를 보고하라.`,
+      `앱 타깃이 없으면 추측하지 말고 built=false와 사유를 보고하라. installedAndLaunched는 반드시 명시적으로 ` +
+      `true/false로 보고하라(생략하면 파이프라인이 미가용으로 간주한다).`,
       { agentType: 'build-runner', model: modelFor(plan, 'build'), phase: 'Build', label: `build:${screen.name}`, schema: BUILD }
     )
     if (!b) throw new Error('build-runner 응답 없음')
     if (!b.built) throw new Error(`빌드 실패 또는 대상 없음${b.note ? ` — ${b.note}` : ''}`)
     // 빌드는 됐지만 설치·실행(시뮬레이터 미가용 등)까지는 못 갔으면 드롭하지 않고 QA를 HOLD로 넘긴다.
-    return { ...prev, build: b, qaAvailable: b.installedAndLaunched !== false }
+    // fail-closed: installedAndLaunched가 명시적으로 true가 아니면(누락 포함) 미가용으로 취급한다.
+    return { ...prev, build: b, qaAvailable: b.installedAndLaunched === true }
   }),
 
   // QA: 시뮬레이터 실행 + 판정 (build가 qaAvailable=false로 통과시켰으면 HOLD 직행 — 소프트)
@@ -248,12 +265,12 @@ const results = pipelineScreens.length === 0 ? [] : await pipeline(
     }
     const run = await agent(
       `${screen.name}의 AXe 시나리오(${prev.tests.scenarioPath || 'qa/scenarios/'})를 부팅된 시뮬레이터(udid: ${(prev.build && prev.build.udid) || '자동 탐색'})에서 실행하고 ` +
-      `단계별 스크린샷을 남겨라. 앱은 build-runner가 이미 설치·실행했다. 시뮬레이터 미부팅·axe 미설치면 그 사실을 보고하라.`,
-      { agentType: 'simulator-qa', model: modelFor(plan, 'qa'), phase: 'QA', label: `qa:${screen.name}` }
+      `단계별 스크린샷을 남겨라. 앱은 build-runner가 이미 설치·실행했다. 시뮬레이터 미부팅·axe 미설치면 그 사실을 log에 보고하라.`,
+      { agentType: 'simulator-qa', model: modelFor(plan, 'qa'), phase: 'QA', label: `qa:${screen.name}`, schema: SIM_RUN }
     )
     const verdict = await agent(
       `${screen.name}의 실행 증거와 테스트 결과로 판정하라. 증거가 부족하면 result=HOLD.\n` +
-      `실행:${run || '(실행 결과 없음 — 시뮬레이터/AXe 미가용 가능성)'}\n테스트:${JSON.stringify(prev.tests)}`,
+      `실행:${run ? JSON.stringify(run) : '(실행 결과 없음 — 시뮬레이터/AXe 미가용 가능성)'}\n테스트:${JSON.stringify(prev.tests)}`,
       { agentType: 'qa-reviewer', model: modelFor(plan, 'qa'), phase: 'QA', label: `review:${screen.name}`, schema: QA_VERDICT }
     )
     return { ...prev, verdict: verdict || { result: 'HOLD', report: 'qa-reviewer 응답 없음' } }
