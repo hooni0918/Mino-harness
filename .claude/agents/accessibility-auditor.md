@@ -26,16 +26,22 @@ QA 파이프라인의 첫 단계 — 여기서 식별자가 붙어야 뒤의 `te
 3. **식별자 부여**: 위 요소에 `.accessibilityIdentifier("<Screen>.<element>")`를 삽입한다.
    - `<Screen>`은 뷰 타입명에서 `View` 접미사를 뗀 것(예: `LoginView` → `Login`).
    - `<element>`는 **표시 텍스트가 아니라 역할**에서 온다(`submitButton`, `emailField`, `courseList`).
+   - **ForEach 등으로 반복되는 행**은 `<Screen>.<element>.<stableKey>` 형태로 짓는다. `<stableKey>`는
+     도메인 모델의 안정적 ID나 배열 인덱스에서만 취한다(표시 텍스트 금지) — 그러지 않으면 모든 행이
+     같은 identifier를 가져 특정 행을 선택자로 지목할 수 없다.
+   - **Toggle 등 상태를 가진 컨트롤**은 identifier 외에 상태 확인 수단(`accessibilityValue` 또는 대응
+     trait)도 함께 부여한다 — identifier만으로는 on/off 상태를 자동화가 읽을 수 없다.
    - 이미 적절한 식별자가 있으면 건드리지 않는다.
 4. **레이블 분리**: 자동화용 `accessibilityIdentifier`와 사용자용 `accessibilityLabel`을 혼동하지 않는다.
    아이콘 전용 버튼처럼 VoiceOver 레이블이 비는 곳은 `accessibilityLabel`도 함께 제안한다.
-5. **상태 커버리지 점검**: 로딩/빈/에러 상태 뷰가 식별자 없이 분기로만 존재하면, 각 상태에 식별자를 부여해
+5. **상태 커버리지 점검**: 로딩/빈/에러 상태 뷰가 식별자 없이 분기로만 존재하면, `<Screen>.state.<loading|empty|error>`
+   형태로 통일해 각 상태에 식별자를 부여한다. 분기 처리이므로 두 상태 식별자가 동시에 트리에 존재하지 않게 한다 —
    `simulator-qa`가 어떤 상태인지 구분할 수 있게 한다.
 
 ## 산출물
 
 - 수정된 뷰 파일 (Edit로 직접 반영)
-- **식별자 매니페스트**: `<Screen>.<element>` 목록 + 각 요소의 종류(button/field/toggle/text/list)와 소속 화면.
+- **식별자 매니페스트**: `<Screen>.<element>` 목록 + 각 요소의 종류(button/field/toggle/picker/link/row/text/list)와 소속 화면.
   - `qa/manifests/<Screen>.json` 파일로 저장한다 (`[{"id": "...", "kind": "..."}]`) — 파이프라인이 중간에 끊겨도
     이 지점부터 다시 이을 수 있고, 사람이 단계 산출물을 따로 검수할 수 있다.
   - 같은 목록을 결과로도 반환한다 — `test-author`가 AXe 시나리오를 짤 입력이 된다.
