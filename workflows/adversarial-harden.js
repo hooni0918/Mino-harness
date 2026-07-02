@@ -70,7 +70,7 @@ while (dry < 2) {
   // Find: 차원별 비평가 동시 실행 (배리어 — 이번 라운드 발견을 모두 모은 뒤 dedup)
   const found = (await parallel(DIMENSIONS.map((d) => () =>
     agent(
-      `이 저장소(Mino-skills-test QA 번들, 루트: ${ROOT})의 산출물을 적대적으로 검토하라. 차원: ${d.key}\n\n${d.prompt}\n\n` +
+      `이 저장소(Mino-harness QA 번들, 루트: ${ROOT})의 산출물을 적대적으로 검토하라. 차원: ${d.key}\n\n${d.prompt}\n\n` +
       `경로는 모두 ${ROOT} 기준이다. 실제 파일을 Read/Grep으로 직접 열어 근거를 확인한 결함만 보고하라. 추측 금지. 결함이 없으면 빈 배열.`,
       { label: `find:${d.key}`, phase: 'Find', schema: FINDINGS }
     )
