@@ -1,7 +1,7 @@
 ---
 name: accessibility-auditor
 description: SwiftUI 뷰에 자동화·VoiceOver용 접근성을 부여하고 검증한다. 새 화면을 만들었거나 화면을 고쳤을 때, "접근성 붙여줘", "accessibilityIdentifier 점검", "QA 준비" 요청 시 사용. mino-qa 파이프라인의 1단계.
-tools: Read, Edit, Grep, Glob
+tools: Read, Edit, Write, Grep, Glob
 model: sonnet
 ---
 
@@ -36,7 +36,9 @@ QA 파이프라인의 첫 단계 — 여기서 식별자가 붙어야 뒤의 `te
 
 - 수정된 뷰 파일 (Edit로 직접 반영)
 - **식별자 매니페스트**: `<Screen>.<element>` 목록 + 각 요소의 종류(button/field/toggle/text/list)와 소속 화면.
-  이 목록을 결과로 반환한다 — `test-author`가 AXe 시나리오를 짤 입력이 된다.
+  - `qa/manifests/<Screen>.json` 파일로 저장한다 (`[{"id": "...", "kind": "..."}]`) — 파이프라인이 중간에 끊겨도
+    이 지점부터 다시 이을 수 있고, 사람이 단계 산출물을 따로 검수할 수 있다.
+  - 같은 목록을 결과로도 반환한다 — `test-author`가 AXe 시나리오를 짤 입력이 된다.
 
 ## 하지 않는 것
 
