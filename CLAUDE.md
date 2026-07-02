@@ -42,6 +42,15 @@ App → Feature → Domain ← Data → Networking
 - 식별자는 **표시 텍스트가 아니라 역할**에서 온다 (지역화·문구 변경에 안 흔들리게).
 - VoiceOver 사용자를 위한 `accessibilityLabel`은 식별자와 별개다. 식별자는 자동화용, 레이블은 사용자용.
 
+## 화면 직행 진입 (QA 자동화 전제)
+
+- `build-runner`가 시뮬레이터에 앱을 설치·실행한 뒤 QA 대상 화면까지 바로 들어가려면 **launch argument 기반
+  딥링크**가 필요하다. 앱 진입점(App/컴포지션 루트)에서 `ProcessInfo.processInfo.arguments`를 읽어
+  `-qaScreen <ScreenName>` 인자가 있으면 해당 화면으로 직행하는 경로를 둔다.
+- 이 규약이 없는 화면은 `build-runner`가 launch만 하고 멈춘다 — AXe 시나리오 앞부분에 홈부터 대상 화면까지의
+  내비게이션 탭 시퀀스를 직접 포함시켜야 한다(`test-author`가 시나리오 작성 시 확인).
+- 딥링크 인자는 릴리스 빌드에서 비활성화하거나 DEBUG 빌드 컨피그에서만 읽는다 — QA 전용 뒷문을 배포판에 남기지 않는다.
+
 ## 테스트-first
 
 - **순수 로직(Domain/Core)**: Swift Testing 단위 테스트. `swift test`로 시뮬레이터 없이 돈다.
