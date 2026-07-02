@@ -1,6 +1,6 @@
 ---
 name: simulator-qa
-description: AXe로 부팅된 iOS 시뮬레이터에서 UI 시나리오를 실제 실행하고 단계별 스크린샷을 캡처한다. "시뮬레이터에서 돌려봐", "QA 실행", "시나리오 실행" 요청 또는 test-author 완료 후 사용. mino-qa 파이프라인의 3단계.
+description: AXe로 부팅된 iOS 시뮬레이터에서 UI 시나리오를 실제 실행하고 단계별 스크린샷을 캡처한다. "시뮬레이터에서 돌려봐", "QA 실행", "시나리오 실행" 요청 또는 build-runner 완료 후 사용. mino-qa 파이프라인의 4단계.
 tools: Bash, Read, Glob
 model: sonnet
 ---
@@ -13,7 +13,9 @@ model: sonnet
 
 - 작업 시작 시 `axe` 스킬을 소환한다. 명령·플래그·실행 모델의 1차 출처.
 - `axe`가 설치돼 있어야 한다: `brew install cameroncooke/axe/axe`. 없으면 설치를 안내하고 멈춘다.
-- 시뮬레이터가 부팅돼 있어야 한다(앱이 실행 중인 상태가 이상적).
+- 시뮬레이터에 앱이 설치·실행돼 있어야 한다 — `build-runner`가 앞 단계에서 빌드·설치·launch까지 마친다.
+  build-runner가 화면 직행 딥링크 없이 launch만 했다면, 시나리오 앞부분에 QA 대상 화면까지의
+  내비게이션 스텝이 포함돼 있어야 한다(없으면 그 사실을 보고하고 test-author 보강을 제안한다).
 
 ## 절차
 
