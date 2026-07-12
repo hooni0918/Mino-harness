@@ -67,9 +67,13 @@ def check_skill_names():
 
 
 # ---- 2. agentType 참조 존재 ----
+# Claude Code 기본 제공 에이전트 타입 — .claude/agents 에 정의하지 않아도 디스패치된다.
+BUILTIN_AGENT_TYPES = {"general-purpose", "claude", "Explore", "Plan", "statusline-setup", "claude-code-guide"}
+
+
 def check_agent_types():
     agents_dir = ROOT / ".claude" / "agents"
-    agent_names = set()
+    agent_names = set(BUILTIN_AGENT_TYPES)
     if agents_dir.is_dir():
         for agent_md in sorted(agents_dir.glob("*.md")):
             m = re.search(r"^name:\s*(\S+)", agent_md.read_text(encoding="utf-8"), re.MULTILINE)
@@ -84,7 +88,7 @@ def check_agent_types():
             for m in re.finditer(r"agentType:\s*['\"]([a-zA-Z0-9_-]+)['\"]", line):
                 name = m.group(1)
                 if name not in agent_names:
-                    add(js_path, i, f"agentType '{name}' 이 .claude/agents/*.md 에 없음")
+                    add(js_path, i, f"agentType '{name}' 이 .claude/agents/*.md 또는 기본 제공 타입에 없음")
 
 
 # ---- 3. 상대링크 대상 존재 ----
