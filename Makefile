@@ -1,0 +1,54 @@
+# Mino-harness 배포(sync) — 이 번들을 Mino 본체 레포로 복사한다.
+#
+# 왜 필요한가: 이 레포에는 앱 코드가 없고(그래서 build-runner가 "대상 없음"을 낸다),
+# 본체 레포에는 에이전트·워크플로가 없다. 하네스를 실제로 돌리려면 둘을 한 cwd에 모아야 한다.
+# docs/ai-workflow-integration.md 의 "방향 B"(머시리만 차용)를 구현한 것.
+#
+# 사용:
+#   make sync   TARGET=/path/to/Team-MINO-iOS   # 본체로 에이전트·스킬·워크플로·게이트 스크립트를 복사
+#   make unsync TARGET=/path/to/Team-MINO-iOS   # 복사한 것만 제거(본체 고유 파일은 건드리지 않음)
+#
+# 복사 후 **본체를 cwd로** Claude Code를 열고:
+#   Workflow({ scriptPath: "workflows/figma-to-qa.js", args: "https://figma.com/..." })
+#
+# 원칙: 추가 복사만 한다(rsync --delete 안 씀) — 본체가 이미 가진 .claude/skills/commit 등을 지우지 않는다.
+
+SHELL := /bin/bash
+
+# 복사 대상 (원본 기준으로 파생 — 번들이 커져도 unsync가 따라간다)
+SKILL_DIRS   := $(notdir $(wildcard .claude/skills/*))
+AGENT_FILES  := $(notdir $(wildcard .claude/agents/*))
+WF_FILES     := $(notdir $(wildcard workflows/*))
+GATE_SCRIPT  := verify_manifest.py
+
+.PHONY: help sync unsync check-target
+
+help:
+	@echo "make sync   TARGET=/path/to/Team-MINO-iOS   # 하네스를 본체로 복사"
+	@echo "make unsync TARGET=/path/to/Team-MINO-iOS   # 복사한 것만 제거"
+
+check-target:
+	@if [ -z "$(TARGET)" ]; then echo "TARGET 미지정 — make sync TARGET=/path/to/Team-MINO-iOS"; exit 1; fi
+	@if [ ! -d "$(TARGET)" ]; then echo "TARGET 디렉터리 없음: $(TARGET)"; exit 1; fi
+
+sync: check-target
+	@mkdir -p "$(TARGET)/.claude/agents" "$(TARGET)/.claude/skills" "$(TARGET)/workflows" "$(TARGET)/scripts"
+	@rsync -a .claude/agents/  "$(TARGET)/.claude/agents/"
+	@rsync -a .claude/skills/  "$(TARGET)/.claude/skills/"
+	@rsync -a workflows/       "$(TARGET)/workflows/"
+	@cp scripts/$(GATE_SCRIPT) "$(TARGET)/scripts/$(GATE_SCRIPT)"
+	@echo "sync 완료 → $(TARGET)"
+	@echo "  agents:  $(AGENT_FILES)"
+	@echo "  skills:  $(SKILL_DIRS)"
+	@echo "  workflows: $(WF_FILES)"
+	@echo "  scripts: $(GATE_SCRIPT)"
+	@echo "이제 본체를 cwd로 열고 Workflow({ scriptPath: \"workflows/figma-to-qa.js\", args: \"<Figma URL>\" })"
+
+unsync: check-target
+	@for f in $(AGENT_FILES); do rm -f "$(TARGET)/.claude/agents/$$f"; done
+	@for d in $(SKILL_DIRS); do rm -rf "$(TARGET)/.claude/skills/$$d"; done
+	@for f in $(WF_FILES); do rm -f "$(TARGET)/workflows/$$f"; done
+	@rm -f "$(TARGET)/scripts/$(GATE_SCRIPT)"
+	@# 비어 있을 때만 지운다(rmdir) — 본체가 원래 갖고 있던 디렉터리는 남는다.
+	@rmdir "$(TARGET)/.claude/agents" "$(TARGET)/workflows" "$(TARGET)/scripts" 2>/dev/null || true
+	@echo "unsync 완료 (복사분만 제거) → $(TARGET)"

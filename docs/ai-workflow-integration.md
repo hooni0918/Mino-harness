@@ -35,19 +35,27 @@ make sync-system     # mino-qa 스킬이 ~/.claude/skills 등으로 전역 배�
 **트레이드오프**: 어디서나 `/mino-qa`를 쓸 수 있지만, Mino 전용 가정(SwiftUI-first, 특정 레이어 이름)이
 다른 프로젝트엔 안 맞을 수 있다. 범용 부분만 흡수하고 프로젝트 특화는 각 레포 `CLAUDE.md`에 남기는 게 낫다.
 
-## 방향 B — 머신리만 차용 (이 레포 자체 배포)
+## 방향 B — 머신리만 차용 (이 레포 자체 배포) · **구현됨**
 
-번들을 **Mino 프로젝트에만** 두되, AI-Workflow의 배포 패턴(원본/산출물 분리 + sync 스크립트)을 빌려온다.
+번들을 **Mino 프로젝트에만** 두되, AI-Workflow의 배포 패턴(원본/산출물 분리 + sync)을 빌려온다.
+루트 `Makefile`이 이 방향을 구현한다 — 원본은 이 레포에 두고 본체 레포로 복사한다.
 
-- 원본은 이 레포에 두고, 실제 Mino 프로젝트의 `.claude/`로 복사·동기화하는 가벼운 `Makefile` + `scripts/sync.py`를 둔다.
-- AI-Workflow의 "로컬 스킬 원본 기준"과 같은 원칙: `.claude/skills/`(산출물)를 직접 고치지 말고 원본을 고친 뒤 배포.
+```sh
+make sync   TARGET=/path/to/Team-MINO-iOS   # .claude/agents·skills, workflows, scripts/verify_manifest.py 복사
+make unsync TARGET=/path/to/Team-MINO-iOS   # 복사분만 제거(본체 고유 파일 보존)
+```
 
-**트레이드오프**: 전역 오염이 없고 Mino에 딱 맞지만, 배포 인프라를 따로 유지해야 한다.
-번들이 작으면 그냥 `cp -R`로 충분하고 인프라는 과하다.
+- 추가 복사만 한다(rsync `--delete` 안 씀) — 본체가 이미 가진 `.claude/skills/commit` 등을 지우지 않는다.
+- 왜 필요한가: 이 레포엔 앱 코드가 없어 `build-runner`가 "대상 없음"을 내고, 본체엔 에이전트가 없어
+  `agentType` 디스패치가 안 된다. 하네스가 실제로 도는 유일한 배치는 **본체에 sync 후 본체를 cwd로 실행**하는 것.
+- `.claude/skills/`(산출물)를 본체에서 직접 고치지 말고 이 레포 원본을 고친 뒤 다시 sync.
+
+**트레이드오프**: 전역 오염이 없고 Mino에 딱 맞지만, sync를 잊으면 본체가 옛 번들로 돈다(원본 수정 후 재sync 필요).
 
 ## 권장
 
-- 지금(실험 단계): **아무 것도 흡수하지 말고** 이 레포를 그대로 클론해 `.claude/`가 살아있는 상태로 테스트.
+- 지금: **방향 B로 본체에 sync**해 본체 cwd에서 `figma-to-qa`를 돌린다. 번들 자체를 고치거나 `adversarial-harden`을
+  돌릴 때만 이 레포를 cwd로 연다.
 - QA 파이프라인이 안정화되면: **방향 A의 범용 부분만** AI-Workflow로 흡수(전역 `/mino-qa`),
   벤더 스킬은 플러그인 설치, 프로젝트 특화 규칙은 Mino `CLAUDE.md`에 잔류.
 

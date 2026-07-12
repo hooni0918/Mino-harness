@@ -10,10 +10,10 @@
 
 그래서 이 번들은 일꾼([에이전트](.claude/agents/))과 그들이 따르는 판단 기준([스킬](.claude/skills/))으로 나뉜다. 일꾼은 손을 움직이고, 스킬은 "이렇게 하면 버그"라는 가드레일을 제공한다. 둘을 분리해 둔 이유는, 판단 기준은 외부에서 검증된 것을 그대로 빌려오고(아래 벤더링) 일꾼만 우리 프로젝트에 맞게 조립하기 위해서다.
 
-## 한 줄 트리거 — figma-to-pr 하네스
+## 한 줄 트리거 — figma-to-qa 하네스
 
 ```
-Workflow({ scriptPath: "workflows/figma-to-pr.js", args: "https://figma.com/..." })
+Workflow({ scriptPath: "workflows/figma-to-qa.js", args: "https://figma.com/..." })
 ```
 
 ```
@@ -23,19 +23,24 @@ Figma URL
   │
   ├─ new      → 파이프라인 밖. "대화형 /ios-workflow로 진행" 안내만 낸다 (guidance)
   │
-  ▼  화면별 파이프라인 (modify / qa-only, 분류기가 배정한 모델로)
+  ▼  화면별 준비 (순차, modify / qa-only, 분류기가 배정한 모델로)
   │
-  ├─ [Sonnet] 수정        screen-modifier → Figma 원본 대조로 기존 화면 수정 (게이트, modify만)
-  ├─ [Sonnet] 접근성      accessibility-auditor → 식별자 부여 + qa/manifests/*.json (게이트)
-  ├─ [Sonnet] 테스트      test-author → 단위테스트 + AXe 시나리오 (컴파일 게이트)
-  ├─ [Sonnet] 빌드        build-runner → 빌드·설치·실행 (빌드 실패 게이트, 시뮬레이터 미가용은 소프트)
-  └─ [Sonnet] QA          simulator-qa → 시뮬레이터 실행 → qa-reviewer 판정 (미가용이면 HOLD)
+  ├─ 수정        screen-modifier → Figma 원본 대조로 기존 화면 수정 (게이트, modify만)
+  ├─ 독립 대조   design-verifier → 수정한 에이전트 대신 Figma 재대조 (반증 우선 게이트, modify만)
+  ├─ 접근성      accessibility-auditor → 식별자 부여 + qa/manifests/*.json (게이트)
+  ├─ 테스트      test-author → 단위테스트 + AXe 시나리오 (컴파일 게이트)
+  └─ 매니페스트  verify_manifest.py → 식별자·시나리오가 소스에 실재하는지 (기계 게이트)
   │
-  ▼  리포트: 화면별 판정 + 드롭 목록(화면·단계·사유) + 신규 화면 안내
+  ▼  배치 공통
+  │
+  ├─ 빌드        build-runner → 배치 전체 1회 빌드·설치·실행 (실패 게이트, 시뮬레이터 미가용은 소프트)
+  └─ QA (순차)   simulator-qa → qa-reviewer 판정 (modify는 Figma 시각 대조, 미가용이면 HOLD)
+  │
+  ▼  리포트: 화면별 판정 + 드롭 목록(화면·단계·사유) + 신규 화면 안내 + PR 본문 초안(qa-artifacts/pr-draft.md)
 ```
 
-> **의존**: Figma MCP(claude.ai 인증 — 백그라운드 실행에선 빠질 수 있음), `axe` CLI.
-> 하네스는 커밋을 만들지 않는다 — 수정·식별자 부여는 워킹트리에 남고, 사람이 리포트와 diff로 검토한 뒤 커밋한다.
+> **의존**: Figma MCP(claude.ai 인증 — 백그라운드 실행에선 빠질 수 있음), `axe` CLI, `python3`.
+> 하네스는 커밋을 만들지 않는다 — 수정·식별자 부여는 워킹트리에, PR 본문은 초안 파일에 남고, 사람이 리포트와 diff로 검토한 뒤 커밋·PR을 만든다.
 
 ## 첫 판단만 무겁게, 실행은 가볍게
 
@@ -74,7 +79,7 @@ AI가 쓴 프롬프트와 에이전트 정의에도 빈틈이 있다. 혼자 검
 | 무엇 | 한 줄 |
 |------|-------|
 | [mino-router](.claude/skills/mino-router/SKILL.md) | Figma/요청을 화면 단위로 분류하고 경로(대화형/무인)·모델로 라우팅하는 두뇌 |
-| [figma-to-pr.js](workflows/figma-to-pr.js) | 분류 → 수정(modify) → 접근성 → 테스트 → QA 를 모델별로 실행하는 하네스 (드롭 사유 리포트 포함) |
+| [figma-to-qa.js](workflows/figma-to-qa.js) | 분류 → 화면별 준비(수정→독립대조→접근성→테스트→매니페스트게이트) → 빌드 1회 → QA 를 모델별로 실행하는 하네스 (드롭 사유·PR 초안 리포트 포함) |
 | [mino-qa](.claude/skills/mino-qa/SKILL.md) | QA 단계를 순서대로 엮는 파이프라인 (게이트 포함) |
 
 ### 에이전트 (각자 독립 컨텍스트, 전문 스킬 소환)
@@ -82,6 +87,7 @@ AI가 쓴 프롬프트와 에이전트 정의에도 빈틈이 있다. 혼자 검
 | 에이전트 | 한 줄 |
 |----------|-------|
 | [screen-modifier](.claude/agents/screen-modifier.md) | 기존 화면에 디자인 변경 반영 — Figma 원본 재대조로 차이 0건까지 수렴 |
+| [design-verifier](.claude/agents/design-verifier.md) | 수정 결과를 수정하지 않은 눈으로 Figma와 재대조 — 만든 쪽의 자기 통과를 막는 반증 우선 게이트 |
 | [accessibility-auditor](.claude/agents/accessibility-auditor.md) | SwiftUI 뷰에 `accessibilityIdentifier` 부여 + 매니페스트 산출 (`qa/manifests/`) |
 | [test-author](.claude/agents/test-author.md) | Swift Testing 단위테스트 + AXe UI 시나리오 작성 |
 | [build-runner](.claude/agents/build-runner.md) | 빌드 → 시뮬레이터 설치·실행 (앱 타깃 없으면 대상 없음 보고) |
@@ -101,8 +107,9 @@ AI가 쓴 프롬프트와 에이전트 정의에도 빈틈이 있다. 혼자 검
 
 | 무엇 | 한 줄 |
 |------|-------|
-| [adversarial-harden.js](workflows/adversarial-harden.js) | 차원별 비평가가 산출물을 적대적으로 공격(의미론적 판단만) → 살아남은 결함만 보고 |
+| [adversarial-harden.js](workflows/adversarial-harden.js) | 차원별 비평가가 산출물을 적대적으로 공격(의미론적 판단만) → 렌즈 다른 검증자 3명이 반증 → 살아남은 결함만 보고 |
 | [check_consistency.py](scripts/check_consistency.py) | 결정론적 정합(호명·죽은 링크·axe 명령·금지 문자열)을 CI에서 기계로 검사 |
+| [verify_manifest.py](scripts/verify_manifest.py) | 접근성 매니페스트·시나리오가 실제 소스에 실재하는지 런타임 게이트로 검사 (빌드 전) |
 
 ## 문서
 
@@ -112,13 +119,19 @@ AI가 쓴 프롬프트와 에이전트 정의에도 빈틈이 있다. 혼자 검
 
 ## 설치
 
-이 저장소를 클론하면 `.claude/`가 살아 있어 여기서 Claude Code를 열면 스킬·에이전트가 바로 동작한다.
-(하네스의 `agentType` 디스패치는 이 레포가 cwd일 때 에이전트가 등록되므로 동작한다.)
+하네스가 실제로 도는 유일한 배치는 **Mino 본체 레포에 sync 후, 본체를 cwd로 여는 것**이다. 이 레포에는 앱 코드가
+없어(그래서 `build-runner`가 "대상 없음"을 낸다) 여기서만 열면 QA 파이프라인이 성립하지 않는다. 루트 `Makefile`이
+번들을 본체로 복사한다.
 
 ```sh
-brew install cameroncooke/axe/axe   # 시뮬레이터 자동화 실행용
-axe list-simulators                 # UDID 확인
+make sync TARGET=/path/to/Team-MINO-iOS   # .claude/agents·skills, workflows, scripts 를 본체로 복사(추가만, 삭제 없음)
+brew install cameroncooke/axe/axe         # 시뮬레이터 자동화 실행용
+axe list-simulators                       # UDID 확인
 ```
+
+그다음 **본체 레포**를 cwd로 Claude Code를 열고 `Workflow({ scriptPath: "workflows/figma-to-qa.js", args: "<Figma URL>" })`.
+번들을 고칠 때는 이 레포 원본을 고친 뒤 다시 `make sync` 한다(본체의 `.claude/`를 직접 고치지 않는다). 번들 자체를
+편집하거나 `adversarial-harden`을 돌릴 때만 이 레포를 cwd로 연다.
 
 벤더 스킬은 원본이 Claude Code 플러그인이기도 하다. 최신 추적이 필요하면 플러그인으로 설치할 수 있다.
 
