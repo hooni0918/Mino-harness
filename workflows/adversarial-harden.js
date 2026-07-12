@@ -24,6 +24,14 @@ export const meta = {
 // 저장소 루트. args로 절대경로를 받으면 그 기준, 아니면 cwd 기준.
 const ROOT = (typeof args === 'string' && args.trim()) ? args.trim() : '.'
 
+// 스캔 범위 지시 — find·verify 양쪽에 공통으로 붙인다.
+// ROOT가 cwd와 다를 때(예: 다른 레포를 args로 지정) 에이전트가 cwd에서 grep을 돌리면
+// 엉뚱한 레포를 스캔해(거대 모노레포면 수십 분) 파일을 못 찾고 헛-판정한다. 그래서 경로를
+// ROOT로 못박고, ROOT 밖을 스캔하지 못하게 한다.
+const SCOPE = `모든 경로는 루트 ${ROOT} 기준이다. Read/Grep/Glob 은 반드시 이 루트 안에서만 수행하고 ` +
+  `(예: Grep 의 path 인자에 ${ROOT} 를 준다), 루트 밖(상위 디렉터리·다른 레포·cwd)은 절대 스캔하지 마라. ` +
+  `상대 경로가 주어지면 ${ROOT} 를 앞에 붙여 절대경로로 연다.`
+
 // 공격 차원. 각 비평가는 자기 차원만 본다 — 한 명이 모든 걸 보는 것보다 빈틈이 적다.
 const DIMENSIONS = [
   { key: 'harness-truth',  prompt: 'mino-qa/SKILL.md, mino-router/SKILL.md, README.md, docs/*.md 가 약속하는 게이트·산출물·흐름(예: "식별자 0개면 드롭", "빌드 실패면 게이트", "qa/manifests/*.json로 저장")을 workflows/*.js 와 .claude/agents/*.md 의 실제 코드·지시와 대조하라. 문서만 약속하고 코드가 안 지키는 것, 코드에 있는데 문서가 모르는 것을 찾아라.' },
@@ -93,8 +101,8 @@ while (dry < 2) {
   // Find: 차원별 비평가 동시 실행 (배리어 — 이번 라운드 발견을 모두 모은 뒤 dedup)
   const found = (await parallel(DIMENSIONS.map((d) => () =>
     agent(
-      `이 저장소(Mino-harness QA 번들, 루트: ${ROOT})의 산출물을 적대적으로 검토하라. 차원: ${d.key}\n\n${d.prompt}\n\n` +
-      `경로는 모두 ${ROOT} 기준이다. 실제 파일을 Read/Grep으로 직접 열어 근거를 확인한 결함만 보고하라. 추측 금지. 결함이 없으면 빈 배열.\n\n` +
+      `이 저장소(Mino-harness QA 번들)의 산출물을 적대적으로 검토하라. 차원: ${d.key}\n\n${d.prompt}\n\n` +
+      `${SCOPE} 실제 파일을 Read/Grep으로 직접 열어 근거를 확인한 결함만 보고하라. 추측 금지. 결함이 없으면 빈 배열.\n\n` +
       `이미 보고돼 검증까지 끝난 결함(file::title) — 표현을 바꿔서라도 재보고하지 말 것:\n${seenList}`,
       { label: `find:${d.key}`, phase: 'Find', schema: FINDINGS }
     )
@@ -110,8 +118,8 @@ while (dry < 2) {
   const judged = await parallel(fresh.map((f) => () =>
     parallel(LENSES.map((lens) => () =>
       agent(
-        `결함 주장을 '${lens.key}' 렌즈로 검증하라. ${lens.prompt}\n\n` +
-        `주장: ${f.title}\n파일: ${f.file}\n근거: ${f.detail}\n제안수정: ${f.fix}\n심각도: ${f.severity}`,
+        `결함 주장을 '${lens.key}' 렌즈로 검증하라. ${lens.prompt}\n\n${SCOPE}\n\n` +
+        `주장: ${f.title}\n파일(루트 기준): ${f.file}\n근거: ${f.detail}\n제안수정: ${f.fix}\n심각도: ${f.severity}`,
         { label: `verify:${f.file}#${lens.key}`, phase: 'Verify', schema: VERDICT }
       )
     )).then((votes) => {
