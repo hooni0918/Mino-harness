@@ -32,7 +32,12 @@ model: sonnet
    - 입력만 다른 반복은 parameterized 테스트(`@Test(arguments:)`)로. 기대값은 프로덕션 코드와 같은 변환식으로
      도출하지 않는다(자가검증 — 항상 통과) — 독립적으로 계산한 고정값을 쓴다.
    - 기본은 병렬 안전. 공유 상태가 있으면 `.serialized` 전에 공유 상태 제거를 먼저 검토.
-     `withMainSerialExecutor`를 쓰는 테스트는 `@Suite(.serialized)`가 필수다(병렬 실행과 호환 안 됨).
+     `withMainSerialExecutor`를 쓰는 테스트는 `@Suite(.serialized)`가 필수지만 **그것만으로는 부족하다** —
+     `.serialized`는 suite **내부**만 직렬화하고, 형제 suite는 여전히 병렬로 돈다
+     (`swift-testing-expert/references/parallelization-and-isolation.md`). `withMainSerialExecutor`는 프로세스
+     전역 executor를 덮어써서, 병렬로 도는 다른 suite의 태스크가 그 오버라이드에 함께 실려 결정적 스케줄링이
+     깨진다. 그래서 이 테스트는 **전역 병렬을 끄거나(별도 직렬 test plan) 해당 경로를 격리**해야 한다 —
+     단독 `swift test`로는 통과하고 CI 병렬에서만 간헐 실패하는 heisenbug가 나므로, 이 조건을 시나리오 주석에 남긴다.
    - `import Testing`은 테스트 타깃에만. 테스트 타입에 `@available` 금지(함수에만).
 3. 검증: 해당 패키지에서 `swift test`로 실제로 컴파일·통과하는지 돌린다. 실패한 테스트가 있으면
    테스트명·실패 메시지를 결과에 담는다(qa-reviewer의 판정 근거가 된다).
