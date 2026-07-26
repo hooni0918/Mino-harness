@@ -117,8 +117,13 @@ axe list-simulators                       # UDID 확인
 prebuilt 유니버설 바이너리를 받아 사용자 경로에 풀면 된다 — 같은 upstream·같은 버전이다.
 
 그다음 **본체 레포**를 cwd로 Claude Code를 열고 `/mino-qa <화면>`. 번들을 고칠 때는 이 레포 원본을 고친 뒤 다시
-`make sync` 한다(본체의 `.claude/`를 직접 고치지 않는다). 폐기된 파일은 `make sync` 가 지우지 않으므로
-`make unsync` → `make sync` 순으로 정리한다. 번들 자체를 편집하거나 `adversarial-harden`을 돌릴 때만 이 레포를 cwd로 연다.
+`make sync` 한다(본체의 `.claude/`를 직접 고치지 않는다). 번들 자체를 편집하거나 `adversarial-harden`을 돌릴 때만
+이 레포를 cwd로 연다.
+
+`sync` 는 삭제를 하지 않으므로, 자산을 **폐기한 버전으로 올릴 때는 `make unsync` → `make sync`** 순으로 돌린다.
+`sync` 가 배치 목록을 본체의 `.claude/.mino-harness-manifest` 에 남기고 `unsync` 가 그 기록을 지우므로, 원본에서
+사라진 자산도 정확히 제거된다(본체가 원래 갖고 있던 `.claude/skills/` 항목은 건드리지 않는다). 이 매니페스트는
+본체 레포의 `.gitignore` 에 넣는다 — 배치 상태를 기록한 로컬 파일이다.
 
 벤더 스킬은 원본이 Claude Code 플러그인이기도 하다. 최신 추적이 필요하면 플러그인으로 설치할 수 있다.
 
