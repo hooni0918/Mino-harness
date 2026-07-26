@@ -37,6 +37,11 @@ QA 파이프라인의 첫 단계 — 여기서 식별자가 붙어야 뒤의 `te
    - **`.accessibilityElement(children: .combine/.ignore)` 등 그룹핑 modifier**는 자식 식별자를 접근성 트리에서
      삼켜 AXe가 자식을 못 찾게 만든다. 자동화 대상 자식이 있는 컨테이너에는 그룹핑을 걸지 않거나, 걸어야 하면
      자동화가 짚을 지점을 그룹 자신에 `<Screen>.<element>`로 노출한다.
+   - **툴바(`ToolbarItem`) 안의 `Button`**은 식별자가 감싸는 컨테이너(`AXGroup`)와 실제 `AXButton` **양쪽에** 실려,
+     접근성 트리에 같은 `AXUniqueId`가 두 번 나타난다(실측: 같은 `AXFrame`·`AXLabel`, 트리 depth 2 차이). 그러면
+     선택자 단독 지정이 다중 매칭으로 거부된다. 식별자를 옮기거나 빼서 해결하려 하지 말고 — 그건 자동화가 짚을
+     지점을 없앤다 — **매니페스트의 `kind`를 정확히 남겨** `test-author`가 `--element-type`으로 좁힐 수 있게 한다.
+     같은 화면의 툴바 밖 `Button`은 한 번만 노출된다.
    - **Toggle 등 상태를 가진 컨트롤**은 identifier 외에 상태 확인 수단(`accessibilityValue` 또는 대응
      trait)도 함께 부여한다 — identifier만으로는 on/off 상태를 자동화가 읽을 수 없다.
    - 이미 적절한 식별자가 있으면 건드리지 않는다.
@@ -52,6 +57,9 @@ QA 파이프라인의 첫 단계 — 여기서 식별자가 붙어야 뒤의 `te
 - **식별자 매니페스트**: `<Screen>.<element>` 목록 + 각 요소의 종류(button/field/toggle/picker/link/row/text/list/state)와 소속 화면. (`state`는 절차 5의 로딩/빈/에러 상태 식별자용.)
   - `qa/manifests/<Screen>.json` 파일로 저장한다 (`[{"id": "...", "kind": "..."}]`) — 파이프라인이 중간에 끊겨도
     이 지점부터 다시 이을 수 있고, 사람이 단계 산출물을 따로 검수할 수 있다.
+  - **화면 하나당 파일 하나다.** 한 번의 감사가 여러 화면(진입 화면·상세 화면 등)을 건드렸으면 화면마다 파일을
+    나눠 쓴다. 게이트(`verify_manifest.py <Screen>`)는 화면을 **파일명으로** 찾으므로, 항목의 `screen` 필드에만
+    적고 한 파일에 몰아넣으면 그 화면은 "매니페스트 없음"으로 실패한다.
   - 같은 목록을 결과로도 반환한다 — `test-author`가 AXe 시나리오를 짤 입력이 된다.
 
 ## 하지 않는 것

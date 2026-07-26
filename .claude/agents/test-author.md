@@ -49,6 +49,16 @@ model: sonnet
 
 - 형식: `qa/scenarios/<screen>.txt`, 한 줄에 한 스텝. `--udid`는 스텝에 넣지 않는다(배치 레벨에서 붙음).
 - 선택자 우선순위: `--id` > `--label` > 좌표. 매니페스트의 식별자를 `--id`로 쓴다.
+- **`--id`에는 `--element-type`을 함께 붙인다.** 같은 식별자가 접근성 트리에 두 번 노출되는 구조가 있다 —
+  `ToolbarItem` 안의 `Button`은 감싸는 `AXGroup`과 실제 `AXButton` 양쪽에 식별자가 실려, `--id` 단독 지정이
+  `Multiple (N) accessibility elements matched`로 **거부**된다. 매니페스트의 `kind`에서 타입을 유도해
+  (`button` → `Button`, `field` → `TextField`, `toggle` → `Switch` …) 처음부터 붙인다. 이미 유일하게 매칭되는
+  요소에 붙여도 결과는 그대로 유일 매칭이라 잃는 게 없고, 나중에 그 요소가 툴바로 옮겨져도 깨지지 않는다.
+- **앱 루트에서 시작한다.** 대상 화면이 launch 직후 화면이 아니면, 거기까지 도달하는 탭 스텝을 맨 앞에 넣는다.
+  "화면에 이미 있다고 가정"하면 시나리오는 launch 시점에 존재하지 않는 요소를 먼저 탭해 실패한다. 앱 루트가
+  무엇인지는 `@main` 진입점 코드를 읽어 확인한다 — **다른 시나리오 파일의 주석을 근거로 삼지 않는다.** 그 파일이
+  쓰인 시점의 루트가 지금과 같다는 보장이 없다(실제로 그렇게 굳은 선례를 그대로 따라 실행 불가한 시나리오가
+  나온 적이 있다). 딥링크·launch argument 로 직행할 수단이 코드에 있으면 그걸 쓴다.
 - **비인터랙티브 요소를 `tap` 스텝으로 넣지 않는다.** 매니페스트에는 텍스트·상태 표시처럼 탭해도 아무 일도
   일어나지 않는 식별자가 섞여 있다. 그걸 탭하면 명령은 성공하지만 검증하는 것이 없어 스텝 수만 부푼다 —
   그 요소의 **존재 확인은 `describe-ui`·스크린샷의 몫**이고, 시나리오는 상태를 바꾸는 동작만 담는다.
@@ -57,13 +67,13 @@ model: sonnet
 - 한글 입력은 AXe가 지원하지 않는다(US 키보드 한정). 한글 입력 단계는 시나리오에서 제외하거나
   사전 시드 데이터로 우회하고, 그 사실을 시나리오 주석으로 남긴다.
 
-예시 (`qa/scenarios/login.txt`):
+예시 (`qa/scenarios/login.txt`) — 진입 화면이 곧 로그인 화면이라 진입 스텝이 없는 경우:
 ```
-tap --id Login.emailField
+tap --id Login.emailField --element-type TextField
 type 'tester@example.com'
-tap --id Login.passwordField
+tap --id Login.passwordField --element-type TextField
 type 'password1234'
-tap --id Login.submitButton
+tap --id Login.submitButton --element-type Button
 ```
 
 ## 산출물
