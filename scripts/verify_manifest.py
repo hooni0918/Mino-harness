@@ -114,6 +114,11 @@ def main():
     if scenarios_dir.is_dir():
         for scenario in sorted(scenarios_dir.glob("*.txt")):
             for i, line in enumerate(scenario.read_text(encoding="utf-8").splitlines(), start=1):
+                # axe batch 는 `#` 주석 줄을 스텝으로 읽지 않는다(batch-reference 의 Input rules).
+                # 게이트가 같은 규칙을 따르지 않으면 주석에 적은 `--id ...` 서술이 존재하지 않는
+                # 선택자로 오인돼, 시나리오는 정상인데 게이트만 실패한다.
+                if line.lstrip().startswith("#"):
+                    continue
                 for m in ID_IN_SCENARIO.finditer(line):
                     selector = m.group(2)
                     if selector not in all_ids:
