@@ -20,6 +20,8 @@ SKILL_DIRS   := $(notdir $(wildcard .claude/skills/*))
 AGENT_FILES  := $(notdir $(wildcard .claude/agents/*))
 WF_FILES     := $(notdir $(wildcard workflows/*))
 GATE_SCRIPT  := verify_manifest.py
+# 배치 기록. 타깃 레포에 남아 unsync 가 "지난번에 배치한 것"을 정확히 지운다(gitignore 대상).
+MANIFEST     := .claude/.mino-harness-manifest
 
 .PHONY: help sync unsync check-target
 
@@ -42,13 +44,28 @@ sync: check-target
 	@echo "  skills:  $(SKILL_DIRS)"
 	@echo "  workflows: $(WF_FILES)"
 	@echo "  scripts: $(GATE_SCRIPT)"
-	@echo "이제 본체를 cwd로 열고 Workflow({ scriptPath: \"workflows/figma-to-qa.js\", args: \"<Figma URL>\" })"
+	@# 배치한 경로를 매니페스트로 남긴다 — 다음 unsync 가 "이번 원본에 있는 것"이 아니라
+	@# "지난번에 실제로 배치한 것"을 지울 수 있게. 이게 없으면 원본에서 삭제된 자산이 본체에 고아로 남는다.
+	@{ for f in $(AGENT_FILES); do echo ".claude/agents/$$f"; done; \
+	   for d in $(SKILL_DIRS); do echo ".claude/skills/$$d"; done; \
+	   for f in $(WF_FILES); do echo "workflows/$$f"; done; \
+	   echo "scripts/$(GATE_SCRIPT)"; } > "$(TARGET)/$(MANIFEST)"
+	@echo "이제 본체를 cwd로 열고 /mino-qa <화면>  (또는 /ios-workflow 의 동작 테스트 단계가 자동 소환)"
 
 unsync: check-target
-	@for f in $(AGENT_FILES); do rm -f "$(TARGET)/.claude/agents/$$f"; done
-	@for d in $(SKILL_DIRS); do rm -rf "$(TARGET)/.claude/skills/$$d"; done
-	@for f in $(WF_FILES); do rm -f "$(TARGET)/workflows/$$f"; done
-	@rm -f "$(TARGET)/scripts/$(GATE_SCRIPT)"
+	@if [ -f "$(TARGET)/$(MANIFEST)" ]; then \
+	   while IFS= read -r p; do \
+	     [ -n "$$p" ] && rm -rf "$(TARGET)/$$p"; \
+	   done < "$(TARGET)/$(MANIFEST)"; \
+	   rm -f "$(TARGET)/$(MANIFEST)"; \
+	   echo "unsync 완료 (매니페스트 기준) → $(TARGET)"; \
+	 else \
+	   for f in $(AGENT_FILES); do rm -f "$(TARGET)/.claude/agents/$$f"; done; \
+	   for d in $(SKILL_DIRS); do rm -rf "$(TARGET)/.claude/skills/$$d"; done; \
+	   for f in $(WF_FILES); do rm -f "$(TARGET)/workflows/$$f"; done; \
+	   rm -f "$(TARGET)/scripts/$(GATE_SCRIPT)"; \
+	   echo "unsync 완료 (매니페스트 없음 — 현재 원본 목록 기준)"; \
+	   echo "  주의: 원본에서 이미 삭제된 자산은 본체에 남아 있을 수 있다. 목록을 눈으로 확인하라."; \
+	 fi
 	@# 비어 있을 때만 지운다(rmdir) — 본체가 원래 갖고 있던 디렉터리는 남는다.
 	@rmdir "$(TARGET)/.claude/agents" "$(TARGET)/workflows" "$(TARGET)/scripts" 2>/dev/null || true
-	@echo "unsync 완료 (복사분만 제거) → $(TARGET)"
