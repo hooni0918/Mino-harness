@@ -54,8 +54,10 @@ make unsync TARGET=/path/to/Team-MINO-iOS   # 복사분만 제거(본체 고유 
 
 ## 권장
 
-- 지금: **방향 B로 본체에 sync**해 본체 cwd에서 `figma-to-qa`를 돌린다. 번들 자체를 고치거나 `adversarial-harden`을
-  돌릴 때만 이 레포를 cwd로 연다.
+- 지금: **방향 B로 본체에 sync**해 본체 cwd에서 `/mino-qa` 를 돌린다(대화형 `/ios-workflow` 의 동작 테스트
+  단계가 소환하거나, 화면을 지목해 단독 호출). 번들 자체를 고치거나 `adversarial-harden`을 돌릴 때만 이 레포를 cwd로 연다.
+- AI-Workflow 쪽 이음매는 프로젝트 프로필의 「동작 테스트 자동화」 슬롯이다. 본체 레포의
+  `.claude/docs/project-profile.md` 가 이 스킬 이름을 공급하면 워크플로우가 자동으로 소환한다.
 - QA 파이프라인이 안정화되면: **방향 A의 범용 부분만** AI-Workflow로 흡수(전역 `/mino-qa`),
   벤더 스킬은 플러그인 설치, 프로젝트 특화 규칙은 Mino `CLAUDE.md`에 잔류.
 

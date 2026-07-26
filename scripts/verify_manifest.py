@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """접근성 매니페스트·QA 시나리오의 런타임 정합 검사 (결정론적 게이트).
 
-figma-to-qa 파이프라인의 접근성 단계 직후에 돈다. accessibility-auditor 가 낸
+mino-qa 파이프라인의 접근성 단계 직후에 돈다. accessibility-auditor 가 낸
 매니페스트가 "말로만" 식별자를 나열한 게 아니라 **실제 소스에 반영됐는지**를
 grep 으로 확정한다 — 이게 통과해야 뒤의 빌드·시뮬레이터 비용을 치를 가치가 있다.
 
