@@ -1,6 +1,6 @@
 ---
 name: mino-router
-description: Figma URL이나 작업 요청을 받아 화면 단위로 "무슨 작업인지" 분류하고 적절한 경로(대화형 ios-workflow / 무인 QA 파이프라인)·에이전트·모델로 라우팅한다. "이 피그마 반영해줘", "이거 QA 돌려줘" + figma.com URL, "mino-router" 요청 시 사용. figma-to-pr 워크플로우의 분류 두뇌.
+description: Figma URL이나 작업 요청을 받아 화면 단위로 "무슨 작업인지" 분류하고 적절한 경로(대화형 ios-workflow / 무인 QA 파이프라인)·에이전트·모델로 라우팅한다. "이 피그마 반영해줘", "이거 QA 돌려줘" + figma.com URL, "mino-router" 요청 시 사용. figma-to-qa 워크플로우의 분류 두뇌.
 argument-hint: "[Figma URL 또는 작업 설명]"
 ---
 
@@ -23,11 +23,18 @@ Mino 작업의 **입구**다. Figma URL이나 요청을 받아, 비싼 모델로
   ▼  [Opus] 분류        Figma를 읽고 → 화면별 changeType, 단계별 모델 배정(배치 전체 공통)
   │
   ├─ new      → 파이프라인 밖. "대화형 /ios-workflow BG <모드>" 안내만 출력 (guidance)
-  ├─ modify   → screen-modifier 수정(게이트) → 접근성(게이트) → 테스트(게이트) → 빌드(게이트) → QA
-  └─ qa-only  →                              접근성(게이트) → 테스트(게이트) → 빌드(게이트) → QA
+  │
+  │   ── 화면별 준비 (순차) ──
+  ├─ modify   → screen-modifier 수정 → design-verifier 독립 대조(게이트) → 접근성(게이트) → 테스트(게이트) → 매니페스트 기계검증(게이트)
+  └─ qa-only  →                                                          접근성(게이트) → 테스트(게이트) → 매니페스트 기계검증(게이트)
+                                        │
+  ── 배치 공통 ──                        ▼
+  빌드 1회(게이트) → 화면별 QA 순차(modify는 Figma 시각 대조) → PR 본문 초안(qa-artifacts/pr-draft.md)
 ```
 
-실제 실행은 [`workflows/figma-to-pr.js`](../../../workflows/figma-to-pr.js)가 한다. 이 스킬은 그 워크플로우가
+준비(수정·접근성·테스트·게이트)는 화면별 순차로 돌고, 공유 자원을 쓰는 **빌드는 배치 전체에 한 번**,
+QA는 시뮬레이터 1대를 나눠 쓰므로 화면별 순차다. 실제 실행은
+[`workflows/figma-to-qa.js`](../../../workflows/figma-to-qa.js)가 한다. 이 스킬은 그 워크플로우가
 따르는 **분류 기준과 라우팅 규칙**을 정의한다.
 
 ## Figma 읽기
@@ -50,7 +57,6 @@ Mino 작업의 **입구**다. Figma URL이나 요청을 받아, 비싼 모델로
     `accessibilityIdentifier` 부여는 검증의 전제 조건이라 예외 — 디자인·로직 변경은 없다는 뜻이다.
 - **complexity**: `low` | `medium` | `high` (상태 분기·비동기·새 모듈 동반 여부)
 - **summary**: 작업 한 줄 요약 (분류 근거)
-- **needsWiki**: 재사용 패턴/아키텍처 결정이 생겨 위키 갱신이 필요한가 (플래그만 — 실행 단계는 후속 과제)
 
 ## 모델 배정 (기본값, Opus가 복잡도 보고 조정)
 

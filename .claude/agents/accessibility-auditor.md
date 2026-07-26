@@ -27,8 +27,16 @@ QA 파이프라인의 첫 단계 — 여기서 식별자가 붙어야 뒤의 `te
    - `<Screen>`은 뷰 타입명에서 `View` 접미사를 뗀 것(예: `LoginView` → `Login`).
    - `<element>`는 **표시 텍스트가 아니라 역할**에서 온다(`submitButton`, `emailField`, `courseList`).
    - **ForEach 등으로 반복되는 행**은 `<Screen>.<element>.<stableKey>` 형태로 짓는다. `<stableKey>`는
-     도메인 모델의 안정적 ID나 배열 인덱스에서만 취한다(표시 텍스트 금지) — 그러지 않으면 모든 행이
-     같은 identifier를 가져 특정 행을 선택자로 지목할 수 없다.
+     **도메인 모델의 안정적 ID**에서 취한다(표시 텍스트 금지) — 그러지 않으면 모든 행이 같은 identifier를 가져
+     특정 행을 선택자로 지목할 수 없다. **배열 인덱스는 쓰지 않는다** — 재정렬·필터·삽입 시 같은 인덱스가 다른
+     도메인 행을 조용히 가리켜 시나리오가 엉뚱한 행을 조작한다. 안정적 ID가 없으면 그 사실을 보고하고 모델에 ID
+     추가를 제안한다(인덱스로 우회하지 않는다).
+   - **재사용 서브뷰가 ForEach 안에서 반복**되면, 서브뷰 내부에 하드코딩된 식별자가 행마다 충돌한다
+     (행 컨테이너에 `.<stableKey>`를 붙여도 자식 내부 식별자는 그대로다). 서브뷰가 식별자 접두사(row의 stableKey)를
+     파라미터로 받아 내부 식별자에 합성하도록 고친다 — 못 고치면 그 서브뷰는 선택자로 지목 불가임을 보고한다.
+   - **`.accessibilityElement(children: .combine/.ignore)` 등 그룹핑 modifier**는 자식 식별자를 접근성 트리에서
+     삼켜 AXe가 자식을 못 찾게 만든다. 자동화 대상 자식이 있는 컨테이너에는 그룹핑을 걸지 않거나, 걸어야 하면
+     자동화가 짚을 지점을 그룹 자신에 `<Screen>.<element>`로 노출한다.
    - **Toggle 등 상태를 가진 컨트롤**은 identifier 외에 상태 확인 수단(`accessibilityValue` 또는 대응
      trait)도 함께 부여한다 — identifier만으로는 on/off 상태를 자동화가 읽을 수 없다.
    - 이미 적절한 식별자가 있으면 건드리지 않는다.
@@ -41,7 +49,7 @@ QA 파이프라인의 첫 단계 — 여기서 식별자가 붙어야 뒤의 `te
 ## 산출물
 
 - 수정된 뷰 파일 (Edit로 직접 반영)
-- **식별자 매니페스트**: `<Screen>.<element>` 목록 + 각 요소의 종류(button/field/toggle/picker/link/row/text/list)와 소속 화면.
+- **식별자 매니페스트**: `<Screen>.<element>` 목록 + 각 요소의 종류(button/field/toggle/picker/link/row/text/list/state)와 소속 화면. (`state`는 절차 5의 로딩/빈/에러 상태 식별자용.)
   - `qa/manifests/<Screen>.json` 파일로 저장한다 (`[{"id": "...", "kind": "..."}]`) — 파이프라인이 중간에 끊겨도
     이 지점부터 다시 이을 수 있고, 사람이 단계 산출물을 따로 검수할 수 있다.
   - 같은 목록을 결과로도 반환한다 — `test-author`가 AXe 시나리오를 짤 입력이 된다.

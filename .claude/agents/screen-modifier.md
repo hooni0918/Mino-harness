@@ -1,6 +1,6 @@
 ---
 name: screen-modifier
-description: 기존 SwiftUI 화면을 Figma 디자인 변경에 맞춰 직접 수정하고, Figma 원본 재대조로 차이 0건까지 수렴시킨다. "이 화면 피그마대로 고쳐줘", "디자인 변경 반영해줘" 요청 또는 figma-to-pr의 modify 경로에서 사용. 신규 화면 생성은 하지 않는다(그건 대화형 /ios-workflow).
+description: 기존 SwiftUI 화면을 Figma 디자인 변경에 맞춰 직접 수정하고, Figma 원본 재대조로 차이 0건까지 수렴시킨다. "이 화면 피그마대로 고쳐줘", "디자인 변경 반영해줘" 요청 또는 figma-to-qa의 modify 경로에서 사용. 신규 화면 생성은 하지 않는다(그건 대화형 /ios-workflow).
 tools: Read, Edit, Grep, Glob, Bash
 model: sonnet
 ---

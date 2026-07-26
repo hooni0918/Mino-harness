@@ -24,6 +24,14 @@ export const meta = {
 // 저장소 루트. args로 절대경로를 받으면 그 기준, 아니면 cwd 기준.
 const ROOT = (typeof args === 'string' && args.trim()) ? args.trim() : '.'
 
+// 스캔 범위 지시 — find·verify 양쪽에 공통으로 붙인다.
+// ROOT가 cwd와 다를 때(예: 다른 레포를 args로 지정) 에이전트가 cwd에서 grep을 돌리면
+// 엉뚱한 레포를 스캔해(거대 모노레포면 수십 분) 파일을 못 찾고 헛-판정한다. 그래서 경로를
+// ROOT로 못박고, ROOT 밖을 스캔하지 못하게 한다.
+const SCOPE = `모든 경로는 루트 ${ROOT} 기준이다. Read/Grep/Glob 은 반드시 이 루트 안에서만 수행하고 ` +
+  `(예: Grep 의 path 인자에 ${ROOT} 를 준다), 루트 밖(상위 디렉터리·다른 레포·cwd)은 절대 스캔하지 마라. ` +
+  `상대 경로가 주어지면 ${ROOT} 를 앞에 붙여 절대경로로 연다.`
+
 // 공격 차원. 각 비평가는 자기 차원만 본다 — 한 명이 모든 걸 보는 것보다 빈틈이 적다.
 const DIMENSIONS = [
   { key: 'harness-truth',  prompt: 'mino-qa/SKILL.md, mino-router/SKILL.md, README.md, docs/*.md 가 약속하는 게이트·산출물·흐름(예: "식별자 0개면 드롭", "빌드 실패면 게이트", "qa/manifests/*.json로 저장")을 workflows/*.js 와 .claude/agents/*.md 의 실제 코드·지시와 대조하라. 문서만 약속하고 코드가 안 지키는 것, 코드에 있는데 문서가 모르는 것을 찾아라.' },
@@ -62,17 +70,40 @@ const VERDICT = {
   required: ['refuted', 'reason'],
 }
 
+// 검증 렌즈 — 3명이 같은 프롬프트로 보면 표가 상관돼 다수결이 무의미하다(Find가 차원을 나눈 것과 같은 이유).
+// 각 렌즈는 다른 각도에서 결함을 죽이려 든다. refuted=true 는 "이 결함은 조치할 가치가 없다"는 킬 표.
+// 세 렌즈 중 2표 이상이 살려야(refuted=false) confirmed — 사실이고, 사소하지 않고, 수정이 안전한 것만 통과.
+const LENSES = [
+  {
+    key: 'fact',
+    prompt: '이 주장이 파일 근거로 **사실인가**를 검증하라. 실제 파일을 직접 열어 주장이 틀렸음(근거가 코드와 다름)을 보이면 refuted=true. 사실로 확인되면 refuted=false.',
+  },
+  {
+    key: 'severity',
+    prompt: '주장이 사실이라 가정하고 **심각도가 조치할 가치가 있는가**를 검증하라. 실제 영향이 미미하거나(로그 노이즈·이론적) 이미 다른 게이트가 막고 있으면 과장이므로 refuted=true. 실질 위험이 있으면 refuted=false.',
+  },
+  {
+    key: 'fix-safety',
+    prompt: '제안 수정(fix)을 적용했을 때 **다른 게이트·레이어 경계·이 번들의 원칙(커밋 안 함/역할 분리/게이트 의미)을 깨뜨리는가**를 검증하라. 수정이 득보다 실이면 refuted=true. 안전하면 refuted=false.',
+  },
+]
+
 const key = (f) => `${f.file}::${f.title}`
 const seen = new Set()
 const confirmed = []
 let dry = 0
 
 while (dry < 2) {
+  // 이미 검증까지 끝난 발견을 finder에 알려 재보고를 막는다 — title 표현이 라운드마다 흔들려도
+  // dedup(key)만으로는 loop-until-dry가 안 마르므로, 본 것을 명시적으로 배제 목록으로 준다.
+  const seenList = seen.size ? [...seen].join(' / ') : '(아직 없음)'
+
   // Find: 차원별 비평가 동시 실행 (배리어 — 이번 라운드 발견을 모두 모은 뒤 dedup)
   const found = (await parallel(DIMENSIONS.map((d) => () =>
     agent(
-      `이 저장소(Mino-harness QA 번들, 루트: ${ROOT})의 산출물을 적대적으로 검토하라. 차원: ${d.key}\n\n${d.prompt}\n\n` +
-      `경로는 모두 ${ROOT} 기준이다. 실제 파일을 Read/Grep으로 직접 열어 근거를 확인한 결함만 보고하라. 추측 금지. 결함이 없으면 빈 배열.`,
+      `이 저장소(Mino-harness QA 번들)의 산출물을 적대적으로 검토하라. 차원: ${d.key}\n\n${d.prompt}\n\n` +
+      `${SCOPE} 실제 파일을 Read/Grep으로 직접 열어 근거를 확인한 결함만 보고하라. 추측 금지. 결함이 없으면 빈 배열.\n\n` +
+      `이미 보고돼 검증까지 끝난 결함(file::title) — 표현을 바꿔서라도 재보고하지 말 것:\n${seenList}`,
       { label: `find:${d.key}`, phase: 'Find', schema: FINDINGS }
     )
   ))).filter(Boolean).flatMap((r) => r.findings || [])
@@ -83,13 +114,13 @@ while (dry < 2) {
   fresh.forEach((f) => seen.add(key(f)))
   log(`이번 라운드 새 발견 ${fresh.length}건 → 검증 진입`)
 
-  // Verify: 각 발견을 독립 검증. refute 우선, 3표 중 2표 이상 생존해야 confirmed.
+  // Verify: 각 발견을 렌즈가 다른 검증자 3명이 독립 판정. 2표 이상 생존해야 confirmed.
   const judged = await parallel(fresh.map((f) => () =>
-    parallel(Array.from({ length: 3 }, (_, i) => () =>
+    parallel(LENSES.map((lens) => () =>
       agent(
-        `다음 결함 주장을 반증하라. 기본 입장은 "반증됨(refuted=true)". 실제 파일을 직접 열어 주장이 틀렸음을 보이지 못할 때만 refuted=false.\n\n` +
-        `주장: ${f.title}\n파일: ${f.file}\n근거: ${f.detail}\n제안수정: ${f.fix}`,
-        { label: `verify:${f.file}#${i}`, phase: 'Verify', schema: VERDICT }
+        `결함 주장을 '${lens.key}' 렌즈로 검증하라. ${lens.prompt}\n\n${SCOPE}\n\n` +
+        `주장: ${f.title}\n파일(루트 기준): ${f.file}\n근거: ${f.detail}\n제안수정: ${f.fix}\n심각도: ${f.severity}`,
+        { label: `verify:${f.file}#${lens.key}`, phase: 'Verify', schema: VERDICT }
       )
     )).then((votes) => {
       const survive = votes.filter(Boolean).filter((v) => !v.refuted).length
