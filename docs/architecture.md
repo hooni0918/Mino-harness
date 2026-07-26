@@ -17,8 +17,9 @@
 ### 2. 에이전트 (자작, `.claude/agents/`)
 **누가 무슨 일을 하는지**다. 각 에이전트는 독립 컨텍스트에서 돌며 위 스킬을 소환해 일한다.
 
-- (modify 경로 선행) `screen-modifier` — Figma 원본 재대조 수렴으로 기존 화면 수정 → `design-verifier`가 독립 대조로 게이트
 - `accessibility-auditor` → `test-author` → `build-runner` → `simulator-qa` → `qa-reviewer`
+
+코드를 쓰는 에이전트는 없다. 신규 구현도 Figma 반영도 대화형 `/ios-workflow` 가 맡는다.
 
 ### 3. 오케스트레이터 (자작, `.claude/skills/mino-qa/`)
 **순서와 게이트**다. 네 에이전트를 파이프라인으로 엮고, 단계 사이의 중단 조건(식별자 누락 등)을 정의한다.
@@ -26,8 +27,7 @@
 ## 데이터가 흐르는 길
 
 ```
-SwiftUI 뷰
-  │   (modify면 screen-modifier가 Figma 대조 수정 → design-verifier가 독립 재대조로 게이트)
+SwiftUI 뷰   (대화형 /ios-workflow 가 이미 작성·리뷰를 마친 상태)
   ▼
 accessibility-auditor ──▶ 식별자 매니페스트 (qa/manifests/<Screen>.json)
   │
@@ -63,8 +63,6 @@ pr-draft ──▶ PR 본문 초안 (qa-artifacts/pr-draft.md)
 
 | 바꾸고 싶은 것 | 고칠 위치 |
 |----------------|-----------|
-| 입력 분류·모델 배정 규칙 | `.claude/skills/mino-router/SKILL.md` |
-| 분류 → 실행 오케스트레이션 | `workflows/figma-to-qa.js` |
 | 본체 레포로 배포(sync) | `Makefile` (`make sync TARGET=...`) |
 | 접근성·시나리오 런타임 정합 검사 | `scripts/verify_manifest.py` |
 | SwiftUI/테스트/동시성 판단 기준 | 벤더 스킬은 직접 수정 금지 → 업스트림 반영 또는 `CLAUDE.md`에 프로젝트 규칙 추가 |
@@ -73,6 +71,5 @@ pr-draft ──▶ PR 본문 초안 (qa-artifacts/pr-draft.md)
 | 프로젝트 레이어/네이밍 규칙 | `CLAUDE.md` |
 | 산출물을 적대적으로 단단하게 | `workflows/adversarial-harden.js` (→ `adversarial-improvement.md`) |
 
-라우터(`mino-router` + `figma-to-qa.js`)는 이 번들의 **입구**다. 비싼 모델로 한 번 분류하고
-나머지 단계를 복잡도에 맞는 모델로 내려보낸다. 신규 화면(`new`)은 대화형 `/ios-workflow` 안내로
-분리되고, 분류 이후의 무인 실행(modify/qa-only)은 위 QA 파이프라인 그대로다.
+`mino-qa`가 이 번들의 **입구**다. 대화형 `/ios-workflow` 의 동작 테스트 단계가 프로젝트 프로필의
+「동작 테스트 자동화」 슬롯을 보고 이 스킬을 소환하며, 화면을 지목한 단독 호출도 같은 파이프라인을 탄다.
