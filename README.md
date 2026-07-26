@@ -74,20 +74,16 @@ AI가 쓴 프롬프트와 에이전트 정의에도 빈틈이 있다. 혼자 검
 
 ## 구성요소
 
-### 입구 · 오케스트레이션
+### 입구
 
 | 무엇 | 한 줄 |
 |------|-------|
-| [mino-router](.claude/skills/mino-router/SKILL.md) | Figma/요청을 화면 단위로 분류하고 경로(대화형/무인)·모델로 라우팅하는 두뇌 |
-| [figma-to-qa.js](workflows/figma-to-qa.js) | 분류 → 화면별 준비(수정→독립대조→접근성→테스트→매니페스트게이트) → 빌드 1회 → QA 를 모델별로 실행하는 하네스 (드롭 사유·PR 초안 리포트 포함) |
-| [mino-qa](.claude/skills/mino-qa/SKILL.md) | QA 단계를 순서대로 엮는 파이프라인 (게이트 포함) |
+| [mino-qa](.claude/skills/mino-qa/SKILL.md) | QA 단계를 순서대로 엮는 파이프라인 (게이트 포함). 대화형 `/ios-workflow` 의 동작 테스트 단계가 소환한다 |
 
 ### 에이전트 (각자 독립 컨텍스트, 전문 스킬 소환)
 
 | 에이전트 | 한 줄 |
 |----------|-------|
-| [screen-modifier](.claude/agents/screen-modifier.md) | 기존 화면에 디자인 변경 반영 — Figma 원본 재대조로 차이 0건까지 수렴 |
-| [design-verifier](.claude/agents/design-verifier.md) | 수정 결과를 수정하지 않은 눈으로 Figma와 재대조 — 만든 쪽의 자기 통과를 막는 반증 우선 게이트 |
 | [accessibility-auditor](.claude/agents/accessibility-auditor.md) | SwiftUI 뷰에 `accessibilityIdentifier` 부여 + 매니페스트 산출 (`qa/manifests/`) |
 | [test-author](.claude/agents/test-author.md) | Swift Testing 단위테스트 + AXe UI 시나리오 작성 |
 | [build-runner](.claude/agents/build-runner.md) | 빌드 → 시뮬레이터 설치·실행 (앱 타깃 없으면 대상 없음 보고) |
