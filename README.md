@@ -2,7 +2,9 @@
 
 화면을 다 만들고 나면 반복 노동이 남는다. **접근성을 붙이고, 테스트를 쓰고, 시뮬레이터에서 직접 눌러보고, 결과를 읽는 일.** 매 피쳐마다 똑같이 반복되는데, 사람이 매번 손으로 한다.
 
-이 저장소는 그 노동을 프롬프트로 옮긴 것이다. Mino(SwiftUI · Clean Architecture · Swift 6 / iOS 17+) iOS 앱에 붙일 작업 자동화 번들이며, Figma URL 하나를 던지면 분류부터 QA까지 알아서 흐른다. 단, 전부를 무인으로 돌리지는 않는다 — **기계 게이트(Figma 원본 대조·컴파일·식별자)가 검증을 대신할 수 있는 작업만** 배경에서 돌고, 계획 승인·리뷰 같은 사람 게이트가 필요한 신규 화면 구현은 대화형 `/ios-workflow` 경로로 안내한다.
+이 저장소는 그 노동을 프롬프트로 옮긴 것이다. Mino(SwiftUI · Clean Architecture · Swift 6 / iOS 17+) iOS 앱에 붙일 **QA 자동화 번들**이며, 화면 하나를 지목하면 접근성 부여부터 판정 리포트까지 흐른다.
+
+코드를 쓰는 일은 여기 없다. 신규 구현도 Figma 디자인 반영도 계획 승인·stub 계약·사용자 리뷰 같은 **사람 게이트**를 요구하는 작업이라 대화형 `/ios-workflow`가 맡고, 이 번들은 그 워크플로우의 동작 테스트 단계가 소환하는 실행부다. 사람이 손으로 앱을 눌러보던 자리를 대신한다.
 
 ## 한 번 정한 방식을 프롬프트로
 
@@ -10,47 +12,33 @@
 
 그래서 이 번들은 일꾼([에이전트](.claude/agents/))과 그들이 따르는 판단 기준([스킬](.claude/skills/))으로 나뉜다. 일꾼은 손을 움직이고, 스킬은 "이렇게 하면 버그"라는 가드레일을 제공한다. 둘을 분리해 둔 이유는, 판단 기준은 외부에서 검증된 것을 그대로 빌려오고(아래 벤더링) 일꾼만 우리 프로젝트에 맞게 조립하기 위해서다.
 
-## 한 줄 트리거 — figma-to-qa 하네스
+## 한 줄 트리거
 
 ```
-Workflow({ scriptPath: "workflows/figma-to-qa.js", args: "https://figma.com/..." })
+/mino-qa <화면 또는 뷰 파일 경로>
 ```
 
 ```
-Figma URL
+화면 지목
   │
-  ▼  [Opus]  분류        Figma MCP로 디자인 읽고 → 화면별 changeType, 단계별 모델 배정(배치 전체 공통)
-  │
-  ├─ new      → 파이프라인 밖. "대화형 /ios-workflow로 진행" 안내만 낸다 (guidance)
-  │
-  ▼  화면별 준비 (순차, modify / qa-only, 분류기가 배정한 모델로)
-  │
-  ├─ 수정        screen-modifier → Figma 원본 대조로 기존 화면 수정 (게이트, modify만)
-  ├─ 독립 대조   design-verifier → 수정한 에이전트 대신 Figma 재대조 (반증 우선 게이트, modify만)
-  ├─ 접근성      accessibility-auditor → 식별자 부여 + qa/manifests/*.json (게이트)
+  ├─ 접근성      accessibility-auditor → 식별자 부여 + qa/manifests/*.json (게이트: 식별자 0개면 중단)
   ├─ 테스트      test-author → 단위테스트 + AXe 시나리오 (컴파일 게이트)
-  └─ 매니페스트  verify_manifest.py → 식별자·시나리오가 소스에 실재하는지 (기계 게이트)
-  │
-  ▼  배치 공통
-  │
-  ├─ 빌드        build-runner → 배치 전체 1회 빌드·설치·실행 (실패 게이트, 시뮬레이터 미가용은 소프트)
-  └─ QA (순차)   simulator-qa → qa-reviewer 판정 (modify는 Figma 시각 대조, 미가용이면 HOLD)
-  │
-  ▼  리포트: 화면별 판정 + 드롭 목록(화면·단계·사유) + 신규 화면 안내 + PR 본문 초안(qa-artifacts/pr-draft.md)
+  ├─ 매니페스트  verify_manifest.py → 식별자·시나리오가 소스에 실재하는지 (기계 게이트, 빌드 전)
+  ├─ 빌드        build-runner → 빌드·설치·실행 (실패 게이트, 시뮬레이터 미가용은 소프트)
+  ├─ 실행        simulator-qa → AXe 로 시나리오 구동 + 단계별 스크린샷
+  └─ 판정        qa-reviewer → PASS/FAIL/PARTIAL/HOLD + 미검증 경로는 보류로 분리
 ```
 
-> **의존**: Figma MCP(claude.ai 인증 — 백그라운드 실행에선 빠질 수 있음), `axe` CLI, `python3`.
-> 하네스는 커밋을 만들지 않는다 — 수정·식별자 부여는 워킹트리에, PR 본문은 초안 파일에 남고, 사람이 리포트와 diff로 검토한 뒤 커밋·PR을 만든다.
+> **의존**: `axe` CLI, `python3`, 부팅된 시뮬레이터.
+> 하네스는 커밋을 만들지 않는다 — 식별자 부여·테스트는 워킹트리에, 판정은 리포트 파일에 남고, 사람이 diff 로 검토한 뒤 커밋한다.
 
-## 첫 판단만 무겁게, 실행은 가볍게
+대화형이라 게이트에 걸리면 **멈추고 사람에게 보고**한다. 옆에 판단할 사람이 있다는 것이 이 번들의 전제다.
+
+## 모델은 단계 성격에 맞춘다
 
 LLM 작업의 비용은 대부분 모델 등급에서 갈린다. 모든 단계를 가장 똑똑한 모델로 돌리면 정확하지만 비싸고, 전부 가벼운 모델로 돌리면 싸지만 엉성하다. 답은 **판단이 필요한 곳에만 비싼 모델을 쓰는 것**이다.
 
-그래서 하네스는 맨 앞에서 Opus를 딱 한 번 쓴다. Figma를 읽고 화면마다 "새 화면인가 / 기존 수정인가 / 검증만 필요한가"를 판단하고, 배치 전체에 적용할 단계별 모델(수정·접근성·테스트·빌드·QA)을 정한다. 그 판단 결과대로 나머지 단계는 기본 Sonnet으로 내려가고, 정말 기계적인 단계만 분류기가 Haiku로 떨어뜨린다. 모델 배정이 코드에 고정돼 있지 않고 **분류기가 매번 정한다는 것**이 핵심이다 — 단순한 UI면 더 가볍게, 아키텍처가 얽히면 더 무겁게. (실측: 테스트·분석성 단계에 Haiku를 쓰니 틀린 지적이 많아 Sonnet으로 격상했다.)
-
-## 신규 화면은 하네스가 만들지 않는다
-
-신규 구현은 계획 승인·stub 계약·사용자 리뷰 같은 **사람 게이트**가 필요한 작업인데, 배경 파이프라인 안에는 승인할 사람이 없다 — 게이트를 무단 통과하거나 멈추는 길뿐이다. 그래서 분류기가 `new`로 판정한 화면은 파이프라인에서 빠지고 "대화형 `/ios-workflow`로 진행하라"는 안내(`guidance`)로 분리된다. 하네스가 무인으로 도는 범위는 **기계 게이트가 검증을 대신할 수 있는 작업**까지다 — 기존 화면 수정은 `screen-modifier`가 Figma 원본을 다시 fetch해 차이 0건까지 수렴시키는 대조 루프가 사람 리뷰 자리를 대신한다.
+에이전트는 전부 Sonnet 기본이다. 기계적인 단계를 Haiku 로 떨어뜨려 봤으나 틀린 지적이 많아 되돌렸다(실측) — 테스트 작성·스크린샷 해석처럼 분석이 섞인 단계는 Haiku 의 출력 노이즈가 절감분을 잡아먹는다.
 
 ## 접근성이 자동화의 전제다
 
@@ -74,20 +62,16 @@ AI가 쓴 프롬프트와 에이전트 정의에도 빈틈이 있다. 혼자 검
 
 ## 구성요소
 
-### 입구 · 오케스트레이션
+### 입구
 
 | 무엇 | 한 줄 |
 |------|-------|
-| [mino-router](.claude/skills/mino-router/SKILL.md) | Figma/요청을 화면 단위로 분류하고 경로(대화형/무인)·모델로 라우팅하는 두뇌 |
-| [figma-to-qa.js](workflows/figma-to-qa.js) | 분류 → 화면별 준비(수정→독립대조→접근성→테스트→매니페스트게이트) → 빌드 1회 → QA 를 모델별로 실행하는 하네스 (드롭 사유·PR 초안 리포트 포함) |
-| [mino-qa](.claude/skills/mino-qa/SKILL.md) | QA 단계를 순서대로 엮는 파이프라인 (게이트 포함) |
+| [mino-qa](.claude/skills/mino-qa/SKILL.md) | QA 단계를 순서대로 엮는 파이프라인 (게이트 포함). 대화형 `/ios-workflow` 의 동작 테스트 단계가 소환한다 |
 
 ### 에이전트 (각자 독립 컨텍스트, 전문 스킬 소환)
 
 | 에이전트 | 한 줄 |
 |----------|-------|
-| [screen-modifier](.claude/agents/screen-modifier.md) | 기존 화면에 디자인 변경 반영 — Figma 원본 재대조로 차이 0건까지 수렴 |
-| [design-verifier](.claude/agents/design-verifier.md) | 수정 결과를 수정하지 않은 눈으로 Figma와 재대조 — 만든 쪽의 자기 통과를 막는 반증 우선 게이트 |
 | [accessibility-auditor](.claude/agents/accessibility-auditor.md) | SwiftUI 뷰에 `accessibilityIdentifier` 부여 + 매니페스트 산출 (`qa/manifests/`) |
 | [test-author](.claude/agents/test-author.md) | Swift Testing 단위테스트 + AXe UI 시나리오 작성 |
 | [build-runner](.claude/agents/build-runner.md) | 빌드 → 시뮬레이터 설치·실행 (앱 타깃 없으면 대상 없음 보고) |
@@ -129,9 +113,12 @@ brew install cameroncooke/axe/axe         # 시뮬레이터 자동화 실행용
 axe list-simulators                       # UDID 확인
 ```
 
-그다음 **본체 레포**를 cwd로 Claude Code를 열고 `Workflow({ scriptPath: "workflows/figma-to-qa.js", args: "<Figma URL>" })`.
-번들을 고칠 때는 이 레포 원본을 고친 뒤 다시 `make sync` 한다(본체의 `.claude/`를 직접 고치지 않는다). 번들 자체를
-편집하거나 `adversarial-harden`을 돌릴 때만 이 레포를 cwd로 연다.
+`brew` 가 Command Line Tools 버전을 이유로 거부하면(Xcode 자체는 정상인데 CLT 만 구버전인 경우가 있다) 릴리스의
+prebuilt 유니버설 바이너리를 받아 사용자 경로에 풀면 된다 — 같은 upstream·같은 버전이다.
+
+그다음 **본체 레포**를 cwd로 Claude Code를 열고 `/mino-qa <화면>`. 번들을 고칠 때는 이 레포 원본을 고친 뒤 다시
+`make sync` 한다(본체의 `.claude/`를 직접 고치지 않는다). 폐기된 파일은 `make sync` 가 지우지 않으므로
+`make unsync` → `make sync` 순으로 정리한다. 번들 자체를 편집하거나 `adversarial-harden`을 돌릴 때만 이 레포를 cwd로 연다.
 
 벤더 스킬은 원본이 Claude Code 플러그인이기도 하다. 최신 추적이 필요하면 플러그인으로 설치할 수 있다.
 

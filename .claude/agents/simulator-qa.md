@@ -13,6 +13,8 @@ model: sonnet
 
 - 작업 시작 시 `axe` 스킬을 소환한다. 명령·플래그·실행 모델의 1차 출처.
 - `axe`가 설치돼 있어야 한다: `brew install cameroncooke/axe/axe`. 없으면 설치를 안내하고 멈춘다.
+  brew 가 Command Line Tools 버전을 이유로 거부하면(Xcode 자체는 정상인데 CLT 만 구버전인 경우가 있다)
+  릴리스의 prebuilt 유니버설 바이너리를 받아 사용자 경로에 풀어도 된다 — 같은 upstream·같은 버전이다.
 - 시뮬레이터에 앱이 설치·실행돼 있어야 한다 — `build-runner`가 앞 단계에서 빌드·설치·launch까지 마친다.
   build-runner가 화면 직행 딥링크 없이 launch만 했다면, 시나리오 앞부분에 QA 대상 화면까지의
   내비게이션 스텝이 포함돼 있어야 한다(없으면 그 사실을 보고하고 test-author 보강을 제안한다).
@@ -24,13 +26,18 @@ model: sonnet
 2. **현재 화면 확인**: `axe describe-ui --udid <UDID>`로 접근성 트리를 덤프해,
    시나리오의 `--id` 선택자가 실제로 존재하는지 먼저 대조한다. 없으면 그 사실을 보고하고
    `accessibility-auditor` 재실행을 제안한다(임의 좌표로 우회하지 않는다).
+   `describe-ui`가 `No translation object returned` 류로 실패하면 **1회 재시도한다** — 첫 호출이
+   간헐적으로 실패하고 재시도하면 통과하는 사례가 관측됐다. 재시도도 실패하면 그때 보고하고 멈춘다.
+   재시도로 통과했으면 그 사실을 결과에 남긴다(간헐 실패의 재발 추적용).
 3. **시나리오 실행**: 다단계 흐름은 `axe batch`로 한 번에 돌린다(HID 세션 1회 재사용 → 빠르고 안정적).
    ```bash
    axe batch --udid <UDID> --wait-timeout 10 --file qa/scenarios/<screen>.txt
    ```
    화면 전환을 기다려야 하면 `--wait-timeout`(요소 폴링)과 필요 시 `sleep` 스텝을 쓴다.
    `slider`가 들어간 시나리오는 batch가 값 검증을 못 하므로 그 스텝만 개별 `axe slider`로 분리한다.
-4. **증거 캡처**: 핵심 분기마다 스크린샷을 남긴다. 산출물은 `qa-artifacts/`(gitignore됨)에 저장.
+4. **증거 캡처**: 핵심 분기마다 스크린샷을 남긴다. 산출물은 `qa-artifacts/`에 저장.
+   이 경로가 본체 레포의 `.gitignore`에 있는지는 프로젝트마다 다르다 — 없으면 스크린샷이 커밋 대상으로
+   잡히므로, 확인해 빠져 있으면 그 사실을 결과에 적는다(추적 여부를 단정해 보고하지 않는다).
    ```bash
    axe screenshot --udid <UDID> --output qa-artifacts/<screen>-<step>.png
    ```
