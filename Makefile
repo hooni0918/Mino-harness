@@ -19,7 +19,10 @@ SHELL := /bin/bash
 SKILL_DIRS   := $(notdir $(wildcard .claude/skills/*))
 AGENT_FILES  := $(notdir $(wildcard .claude/agents/*))
 WF_FILES     := $(notdir $(wildcard workflows/*))
-GATE_SCRIPT  := verify_manifest.py
+# 기본은 "scripts/ 에 추가하면 함께 배치". 단 하네스 레포 자신을 검사하는 스크립트는 앱 레포에
+# 가 봐야 대상이 없어 오해만 부른다(ROOT 를 자기 위치에서 잡으므로 엉뚱한 트리를 검사한다).
+SCRIPT_EXCLUDE := check_consistency.py
+SCRIPT_FILES := $(filter-out $(SCRIPT_EXCLUDE),$(notdir $(wildcard scripts/*)))
 # 배치 기록. 타깃 레포에 남아 unsync 가 "지난번에 배치한 것"을 정확히 지운다(gitignore 대상).
 MANIFEST     := .claude/.mino-harness-manifest
 
@@ -38,19 +41,23 @@ sync: check-target
 	@rsync -a .claude/agents/  "$(TARGET)/.claude/agents/"
 	@rsync -a .claude/skills/  "$(TARGET)/.claude/skills/"
 	@rsync -a workflows/       "$(TARGET)/workflows/"
-	@cp scripts/$(GATE_SCRIPT) "$(TARGET)/scripts/$(GATE_SCRIPT)"
+	@# 실행 비트를 보존해야 한다(setup.sh) — cp 대신 rsync -a.
+	@rsync -a $(foreach f,$(SCRIPT_EXCLUDE),--exclude '$(f)') scripts/ "$(TARGET)/scripts/"
 	@echo "sync 완료 → $(TARGET)"
 	@echo "  agents:  $(AGENT_FILES)"
 	@echo "  skills:  $(SKILL_DIRS)"
 	@echo "  workflows: $(WF_FILES)"
-	@echo "  scripts: $(GATE_SCRIPT)"
+	@echo "  scripts: $(SCRIPT_FILES)"
 	@# 배치한 경로를 매니페스트로 남긴다 — 다음 unsync 가 "이번 원본에 있는 것"이 아니라
 	@# "지난번에 실제로 배치한 것"을 지울 수 있게. 이게 없으면 원본에서 삭제된 자산이 본체에 고아로 남는다.
 	@{ for f in $(AGENT_FILES); do echo ".claude/agents/$$f"; done; \
 	   for d in $(SKILL_DIRS); do echo ".claude/skills/$$d"; done; \
 	   for f in $(WF_FILES); do echo "workflows/$$f"; done; \
-	   echo "scripts/$(GATE_SCRIPT)"; } > "$(TARGET)/$(MANIFEST)"
-	@echo "이제 본체를 cwd로 열고 /mino-qa <화면>  (또는 /ios-workflow 의 동작 테스트 단계가 자동 소환)"
+	   for f in $(SCRIPT_FILES); do echo "scripts/$$f"; done; } > "$(TARGET)/$(MANIFEST)"
+	@echo
+	@echo "먼저 실행 전제를 점검하라 (axe·시뮬레이터·python3):"
+	@echo "  cd $(TARGET) && scripts/setup.sh"
+	@echo "그다음 본체를 cwd로 열고 /mino-qa <화면>  (또는 /ios-workflow 의 동작 테스트 단계가 자동 소환)"
 
 unsync: check-target
 	@if [ -f "$(TARGET)/$(MANIFEST)" ]; then \
@@ -63,7 +70,7 @@ unsync: check-target
 	   for f in $(AGENT_FILES); do rm -f "$(TARGET)/.claude/agents/$$f"; done; \
 	   for d in $(SKILL_DIRS); do rm -rf "$(TARGET)/.claude/skills/$$d"; done; \
 	   for f in $(WF_FILES); do rm -f "$(TARGET)/workflows/$$f"; done; \
-	   rm -f "$(TARGET)/scripts/$(GATE_SCRIPT)"; \
+	   for f in $(SCRIPT_FILES); do rm -f "$(TARGET)/scripts/$$f"; done; \
 	   echo "unsync 완료 (매니페스트 없음 — 현재 원본 목록 기준)"; \
 	   echo "  주의: 원본에서 이미 삭제된 자산은 본체에 남아 있을 수 있다. 목록을 눈으로 확인하라."; \
 	 fi
